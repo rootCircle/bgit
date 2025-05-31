@@ -48,8 +48,22 @@ impl Rule for IsGitInstalledLocally {
 
     fn try_fix(&self) -> Result<bool, Box<BGitError>> {
         println!("Executing sudo apt-get install git");
+
+        #[cfg(target_os = "linux")]
         let output = Command::new("sudo")
             .arg("apt-get")
+            .arg("install")
+            .arg("git")
+            .output();
+
+        #[cfg(target_os = "windows")]
+        let output = Command::new("winget")
+            .arg("install")
+            .arg("git")
+            .output();
+
+        #[cfg(target_os = "macos")]
+        let output = Command::new("brew")
             .arg("install")
             .arg("git")
             .output();
