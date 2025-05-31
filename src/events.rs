@@ -18,7 +18,7 @@ mod git_filter_repo;
 pub mod git_init;
 mod git_pull;
 mod git_push;
-mod git_restore;
+pub mod git_restore;
 pub mod git_stash;
 pub mod git_status;
 
