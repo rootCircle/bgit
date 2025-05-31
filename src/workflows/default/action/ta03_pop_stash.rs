@@ -1,9 +1,11 @@
+use crate::step::PromptStep;
+use crate::step::Task::PromptStepTask;
+use crate::workflows::default::prompt::pa05_ask_to_add::AskToAdd;
 use crate::{
     bgit_error::BGitError,
     events::{git_stash::GitStash, AtomicEvent},
     step::{ActionStep, Step},
 };
-
 pub(crate) struct PopStash {
     name: String,
     stash_index: Option<usize>,
@@ -42,8 +44,7 @@ impl ActionStep for PopStash {
         let git_stash = GitStash::pop_stash(self.stash_index);
 
         git_stash.raw_execute()?;
-        // change thissssssss to ask add to add file
         println!("Stash popped successfully.");
-        Ok(Step::Stop)
+        Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new()))))
     }
 }
