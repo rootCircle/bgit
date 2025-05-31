@@ -57,16 +57,10 @@ impl Rule for IsGitInstalledLocally {
             .output();
 
         #[cfg(target_os = "windows")]
-        let output = Command::new("winget")
-            .arg("install")
-            .arg("git")
-            .output();
+        let output = Command::new("winget").arg("install").arg("git").output();
 
         #[cfg(target_os = "macos")]
-        let output = Command::new("brew")
-            .arg("install")
-            .arg("git")
-            .output();
+        let output = Command::new("brew").arg("install").arg("git").output();
 
         match output {
             Err(e) => Err(Box::new(BGitError::new(
