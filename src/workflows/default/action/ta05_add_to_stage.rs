@@ -50,7 +50,7 @@ impl ActionStep for AddToStaging {
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_add = GitAdd::new();
         git_add.execute()?;
-        // CHANGE
+        // CHANGE to hascommited change
         Ok(Step::Stop)
     }
 }

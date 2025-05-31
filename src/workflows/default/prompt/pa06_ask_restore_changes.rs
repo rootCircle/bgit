@@ -1,23 +1,22 @@
-use crate::step::Task::PromptStepTask;
-use crate::workflows::default::action::ta05_add_to_stage::AddToStaging;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
+    events::git_restore::RestoreMode,
+    step::{PromptStep, Step, Task::ActionStepTask},
+    workflows::default::action::ta06_restore_changes::RestoreChanges,
 };
 use dialoguer::{theme::ColorfulTheme, Select};
 
-use super::pa06_ask_restore_changes::AskToRestore;
-pub(crate) struct AskToAdd {
+pub(crate) struct AskToRestore {
     name: String,
 }
 
-impl PromptStep for AskToAdd {
+impl PromptStep for AskToRestore {
     fn new() -> Self
     where
         Self: Sized,
     {
-        AskToAdd {
-            name: "ask_to_add".to_owned(),
+        AskToRestore {
+            name: "ask_to_restore".to_owned(),
         }
     }
 
@@ -27,9 +26,13 @@ impl PromptStep for AskToAdd {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Do you want to add the unstaged files?")
+            .with_prompt("What do you want to restore?")
             .default(0)
-            .items(&["Yes", "No"])
+            .items(&[
+                "Restore unstaged changes (git restore .)",
+                "Unstage all files (git restore --staged .)",
+                "Cancel",
+            ])
             .interact()
             .map_err(|e| {
                 Box::new(BGitError::new(
@@ -43,8 +46,13 @@ impl PromptStep for AskToAdd {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(AddToStaging::new())))),
-            1 => Ok(Step::Task(PromptStepTask(Box::new(AskToRestore::new())))),
+            0 => Ok(Step::Task(ActionStepTask(Box::new(
+                RestoreChanges::with_mode(RestoreMode::RestoreAllUnstaged),
+            )))),
+            1 => Ok(Step::Task(ActionStepTask(Box::new(
+                RestoreChanges::with_mode(RestoreMode::UnstageAll),
+            )))),
+            2 => Ok(Step::Stop),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",
                 "Unexpected selection index in Select prompt.",
