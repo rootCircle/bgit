@@ -19,6 +19,7 @@ pub mod git_init;
 mod git_pull;
 mod git_push;
 mod git_restore;
+pub mod git_stash;
 mod git_status;
 
 const PENGUIN_EMOJI: &str = "🐧";
