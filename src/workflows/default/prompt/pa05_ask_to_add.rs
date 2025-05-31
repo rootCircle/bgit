@@ -1,22 +1,21 @@
-use crate::workflows::default::action::ta03_pop_stash::PopStash;
-use crate::workflows::default::action::ta04_has_unstaged::HasUnstaged;
+use crate::workflows::default::action::ta05_add_to_stage::AddToStaging;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
 };
 use dialoguer::{theme::ColorfulTheme, Select};
 
-pub(crate) struct AskPopStash {
+pub(crate) struct AskToAdd {
     name: String,
 }
 
-impl PromptStep for AskPopStash {
+impl PromptStep for AskToAdd {
     fn new() -> Self
     where
         Self: Sized,
     {
-        AskPopStash {
-            name: "ask_pop_stash".to_owned(),
+        AskToAdd {
+            name: "ask_to_add".to_owned(),
         }
     }
 
@@ -26,7 +25,7 @@ impl PromptStep for AskPopStash {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Do you want to pop the stash?")
+            .with_prompt("Do you want to add the unstaged files?")
             .default(0)
             .items(&["Yes", "No"])
             .interact()
@@ -42,8 +41,9 @@ impl PromptStep for AskPopStash {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(PopStash::new())))),
-            1 => Ok(Step::Task(ActionStepTask(Box::new(HasUnstaged::new())))),
+            0 => Ok(Step::Task(ActionStepTask(Box::new(AddToStaging::new())))),
+            // CHANGE THIS
+            1 => Ok(Step::Stop),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",
                 "Unexpected selection index in Select prompt.",

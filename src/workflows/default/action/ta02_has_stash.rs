@@ -1,5 +1,7 @@
 use crate::step::PromptStep;
+use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
+use crate::workflows::default::action::ta04_has_unstaged::HasUnstaged;
 use crate::workflows::default::prompt::pa04_ask_pop_stash::AskPopStash;
 use crate::{
     bgit_error::BGitError,
@@ -41,15 +43,14 @@ impl ActionStep for HasStash {
 
             let mut git_add_event = GitAdd::new();
             git_add_event.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
-            git_add_event.execute()?;
+            // git_add_event.execute()?;
 
             if has_stash {
                 println!("Stash exists in the repository.");
                 Ok(Step::Task(PromptStepTask(Box::new(AskPopStash::new()))))
             } else {
                 println!("No stash found in the repository.");
-                // Prompt step:  has unstaged files
-                Ok(Step::Stop)
+                Ok(Step::Task(ActionStepTask(Box::new(HasUnstaged::new()))))
             }
         } else {
             Ok(Step::Stop)
