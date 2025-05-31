@@ -1,3 +1,6 @@
+use crate::step::PromptStep;
+use crate::step::Task::PromptStepTask;
+use crate::workflows::default::prompt::pa04_ask_pop_stash::AskPopStash;
 use crate::{
     bgit_error::BGitError,
     events::{git_add::GitAdd, AtomicEvent},
@@ -6,7 +9,6 @@ use crate::{
 };
 use git2::Repository;
 use std::env;
-
 pub(crate) struct HasStash {
     name: String,
 }
@@ -41,12 +43,14 @@ impl ActionStep for HasStash {
             git_add_event.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
             git_add_event.execute()?;
 
-            Ok(Step::Stop)
-            // if has_stash {
-            //     Ok(Step::Stop)
-            // } else {
-            //     Ok(Step::Stop)
-            // }
+            if has_stash {
+                println!("Stash exists in the repository.");
+                Ok(Step::Task(PromptStepTask(Box::new(AskPopStash::new()))))
+            } else {
+                println!("No stash found in the repository.");
+                // Prompt step:  has unstaged files
+                Ok(Step::Stop)
+            }
         } else {
             Ok(Step::Stop)
         }
