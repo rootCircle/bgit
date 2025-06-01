@@ -3,7 +3,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use git2::{Repository, Status, StatusOptions};
+use git2::{BranchType, Repository, Status, StatusOptions};
 use std::path::Path;
 
 pub(crate) struct GitStatus {
@@ -314,4 +314,188 @@ pub fn has_new_files() -> Result<bool, Box<BGitError>> {
     }
 
     Ok(false)
+}
+
+/// Check if there are unpushed commits (local branch is ahead of remote)
+pub fn has_unpushed_commits() -> Result<bool, Box<BGitError>> {
+    let repo = Repository::open(".").map_err(|e| {
+        Box::new(BGitError::new(
+            "Failed to open repository",
+            &e.to_string(),
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpushed_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get current branch
+    let head = repo.head().map_err(|e| {
+        Box::new(BGitError::new(
+            "No HEAD found",
+            &e.to_string(),
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpushed_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+    let branch_name = head.shorthand().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid branch name",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpushed_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get local branch
+    let local_branch = repo
+        .find_branch(branch_name, BranchType::Local)
+        .map_err(|e| {
+            Box::new(BGitError::new(
+                "Local branch not found",
+                &e.to_string(),
+                BGitErrorWorkflowType::ActionStep,
+                "has_unpushed_commits",
+                NO_EVENT,
+                NO_RULE,
+            ))
+        })?;
+    let local_oid = local_branch.get().target().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid local commit",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpushed_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get upstream branch
+    let upstream_branch = match local_branch.upstream() {
+        Ok(branch) => branch,
+        Err(_) => return Ok(false), // No upstream configured
+    };
+    let upstream_oid = upstream_branch.get().target().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid upstream commit",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpushed_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Check if local is ahead of upstream
+    let (ahead, _behind) = repo
+        .graph_ahead_behind(local_oid, upstream_oid)
+        .map_err(|e| {
+            Box::new(BGitError::new(
+                "Failed to compute ahead/behind",
+                &e.to_string(),
+                BGitErrorWorkflowType::ActionStep,
+                "has_unpushed_commits",
+                NO_EVENT,
+                NO_RULE,
+            ))
+        })?;
+        println!("Ahead: {}, Behind: {}", ahead, _behind);
+
+    Ok(ahead > 0)
+}
+/// Check if there are unpulled commits (local branch is behind remote)
+pub fn has_unpulled_commits() -> Result<bool, Box<BGitError>> {
+    let repo = Repository::open(".").map_err(|e| {
+        Box::new(BGitError::new(
+            "Failed to open repository",
+            &e.to_string(),
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpulled_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get current branch
+    let head = repo.head().map_err(|e| {
+        Box::new(BGitError::new(
+            "No HEAD found",
+            &e.to_string(),
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpulled_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+    let branch_name = head.shorthand().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid branch name",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpulled_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get local branch
+    let local_branch = repo
+        .find_branch(branch_name, BranchType::Local)
+        .map_err(|e| {
+            Box::new(BGitError::new(
+                "Local branch not found",
+                &e.to_string(),
+                BGitErrorWorkflowType::ActionStep,
+                "has_unpulled_commits",
+                NO_EVENT,
+                NO_RULE,
+            ))
+        })?;
+    let local_oid = local_branch.get().target().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid local commit",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpulled_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Get upstream branch
+    let upstream_branch = match local_branch.upstream() {
+        Ok(branch) => branch,
+        Err(_) => return Ok(false), // No upstream configured
+    };
+    let upstream_oid = upstream_branch.get().target().ok_or_else(|| {
+        Box::new(BGitError::new(
+            "Invalid upstream commit",
+            "",
+            BGitErrorWorkflowType::ActionStep,
+            "has_unpulled_commits",
+            NO_EVENT,
+            NO_RULE,
+        ))
+    })?;
+
+    // Check if local is behind upstream
+    let (_ahead, behind) = repo
+        .graph_ahead_behind(local_oid, upstream_oid)
+        .map_err(|e| {
+            Box::new(BGitError::new(
+                "Failed to compute ahead/behind",
+                &e.to_string(),
+                BGitErrorWorkflowType::ActionStep,
+                "has_unpulled_commits",
+                NO_EVENT,
+                NO_RULE,
+            ))
+        })?;
+
+    Ok(behind > 0)
 }

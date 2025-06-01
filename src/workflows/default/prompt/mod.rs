@@ -4,3 +4,4 @@ pub(crate) mod pa03_init_git_repo;
 pub(crate) mod pa04_ask_pop_stash;
 pub(crate) mod pa05_ask_to_add;
 pub(crate) mod pa06_ask_restore_changes;
+pub(crate) mod pa07_ask_pull_push;
