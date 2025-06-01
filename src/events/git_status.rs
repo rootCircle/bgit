@@ -317,6 +317,7 @@ pub fn has_new_files() -> Result<bool, Box<BGitError>> {
 }
 
 /// Check if there are unpushed commits (local branch is ahead of remote)
+#[allow(dead_code)]
 pub fn has_unpushed_commits() -> Result<bool, Box<BGitError>> {
     let repo = Repository::open(".").map_err(|e| {
         Box::new(BGitError::new(
@@ -404,11 +405,12 @@ pub fn has_unpushed_commits() -> Result<bool, Box<BGitError>> {
                 NO_RULE,
             ))
         })?;
-        println!("Ahead: {}, Behind: {}", ahead, _behind);
+    println!("Ahead: {}, Behind: {}", ahead, _behind);
 
     Ok(ahead > 0)
 }
 /// Check if there are unpulled commits (local branch is behind remote)
+#[allow(dead_code)]
 pub fn has_unpulled_commits() -> Result<bool, Box<BGitError>> {
     let repo = Repository::open(".").map_err(|e| {
         Box::new(BGitError::new(
