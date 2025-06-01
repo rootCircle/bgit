@@ -10,3 +10,4 @@ pub(crate) mod ta09_pull_push;
 pub(crate) mod ta10_is_branch_main;
 pub(crate) mod ta11_is_sole_contributor;
 pub(crate) mod ta12_move_changes;
+pub(crate) mod ta13_ai_commit_msg;
