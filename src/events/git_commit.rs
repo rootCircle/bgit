@@ -3,7 +3,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use git2::{Repository, Signature};
+use git2::Repository;
 use std::path::Path;
 
 pub(crate) struct GitCommit {
