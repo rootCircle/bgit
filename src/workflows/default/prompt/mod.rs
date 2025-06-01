@@ -8,3 +8,5 @@ pub(crate) mod pa07_ask_pull_push;
 pub(crate) mod pa08_ask_commit;
 pub(crate) mod pa09_ask_branch_name;
 pub(crate) mod pa10_ask_same_feat;
+pub(crate) mod pa11_ask_ai_commit_msg;
+pub(crate) mod pa12_ask_commit_msg;

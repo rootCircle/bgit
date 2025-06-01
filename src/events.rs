@@ -13,7 +13,7 @@ pub mod git_branch;
 mod git_checkout;
 mod git_clean;
 pub mod git_clone;
-mod git_commit;
+pub mod git_commit;
 mod git_filter_repo;
 pub mod git_init;
 pub mod git_pull;
@@ -22,6 +22,7 @@ pub mod git_restore;
 pub mod git_stash;
 pub mod git_status;
 pub mod git_log;
+pub mod git_diff;
 
 const PENGUIN_EMOJI: &str = "🐧";
 

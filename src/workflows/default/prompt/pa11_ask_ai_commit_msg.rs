@@ -1,23 +1,25 @@
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{PromptStep, Step}, workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled,
-};
-use dialoguer::{theme::ColorfulTheme, Select};
+use super::pa12_ask_commit_msg::AskHumanCommitMessage;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
-use super::pa11_ask_ai_commit_msg::AskAICommitMessage;
-pub(crate) struct AskCommit {
+use crate::{
+    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
+    step::{PromptStep, Step},
+    workflows::default::action::ta13_ai_commit_msg::AICommit,
+};
+use dialoguer::{theme::ColorfulTheme, Select};
+
+pub(crate) struct AskAICommitMessage {
     name: String,
 }
 
-impl PromptStep for AskCommit {
+impl PromptStep for AskAICommitMessage {
     fn new() -> Self
     where
         Self: Sized,
     {
-        AskCommit {
-            name: "ask_commit".to_owned(),
+        AskAICommitMessage {
+            name: "ask_ai_commit_message".to_owned(),
         }
     }
 
@@ -27,9 +29,12 @@ impl PromptStep for AskCommit {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Do you want to commit changes?")
+            .with_prompt("Do you want your commit message written by AI?")
             .default(0)
-            .items(&["Yes", "No"])
+            .items(&[
+                "Yes, generate AI commit message",
+                "No, I'll write it myself",
+            ])
             .interact()
             .map_err(|e| {
                 Box::new(BGitError::new(
@@ -43,8 +48,10 @@ impl PromptStep for AskCommit {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(PromptStepTask(Box::new(AskAICommitMessage::new())))),
-            1 => Ok(Step::Task(ActionStepTask(Box::new(IsPushedPulled::new())))),
+            0 => Ok(Step::Task(ActionStepTask(Box::new(AICommit::new())))),
+            1 => Ok(Step::Task(PromptStepTask(Box::new(
+                AskHumanCommitMessage::new(),
+            )))),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",
                 "Unexpected selection index in Select prompt.",
