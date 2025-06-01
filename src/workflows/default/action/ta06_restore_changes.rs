@@ -1,4 +1,3 @@
-
 use crate::{
     bgit_error::BGitError,
     events::{
@@ -8,6 +7,8 @@ use crate::{
     step::{ActionStep, Step},
 };
 
+use super::ta07_has_uncommitted::HasUncommitted;
+use crate::step::Task::ActionStepTask;
 pub(crate) struct RestoreChanges {
     name: String,
     restore_mode: Option<RestoreMode>,
@@ -57,7 +58,7 @@ impl ActionStep for RestoreChanges {
                 println!("Restore operation completed successfully.");
             }
         }
-        // CHANGE has commited change
-        Ok(Step::Stop)
+
+        Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))))
     }
 }

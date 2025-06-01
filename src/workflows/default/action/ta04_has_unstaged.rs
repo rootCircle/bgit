@@ -1,4 +1,6 @@
+use super::ta07_has_uncommitted::HasUncommitted;
 use crate::events::AtomicEvent;
+use crate::step::Task::ActionStepTask;
 use crate::workflows::default::prompt::pa05_ask_to_add::AskToAdd;
 use crate::{
     bgit_error::BGitError,
@@ -25,8 +27,10 @@ impl ActionStep for HasUnstaged {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_status = GitStatus::new();
-        git_status.raw_execute()?;
-        // CHANGE : "no" step if left to implement
-        Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new()))))
+        match git_status.raw_execute() {
+            Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new())))),
+            Ok(false) => Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new())))),
+            Err(e) => Err(e),
+        }
     }
 }

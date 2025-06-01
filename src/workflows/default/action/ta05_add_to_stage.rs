@@ -4,6 +4,8 @@ use crate::{
     step::{ActionStep, Step},
 };
 
+use super::ta07_has_uncommitted::HasUncommitted;
+use crate::step::Task::ActionStepTask;
 pub(crate) struct AddToStaging {
     name: String,
     add_all: bool,
@@ -50,7 +52,6 @@ impl ActionStep for AddToStaging {
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_add = GitAdd::new();
         git_add.execute()?;
-        // CHANGE to hascommited change
-        Ok(Step::Stop)
+        Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))))
     }
 }
