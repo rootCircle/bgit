@@ -88,7 +88,7 @@ impl AtomicEvent for GitPull {
         let mut fetch_options = Self::create_fetch_options();
 
         // Fetch all references to ensure we have the latest remote state
-        remote.fetch(&[&format!("refs/heads/*:refs/remotes/origin/*")], Some(&mut fetch_options), None).map_err(|e| {
+        remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
                 &format!("Failed to fetch from remote: {}. Please check your SSH keys or authentication setup.", e),
@@ -131,7 +131,7 @@ impl AtomicEvent for GitPull {
                 Err(git2::Error::new(
                     git2::ErrorCode::NotFound,
                     git2::ErrorClass::Reference,
-                    &format!(
+                    format!(
                         "Remote branch 'origin/{}' not found. Available remote branches: {:?}",
                         branch_name, remote_branches
                     ),
@@ -609,7 +609,7 @@ impl GitPull {
             Err(git2::Error::new(
                 git2::ErrorCode::Auth,
                 git2::ErrorClass::Net,
-                &format!(
+                format!(
                     "Authentication failed after {} attempts for {}. Available methods: {:?}",
                     current_attempt + 1, url, allowed_types
                 )

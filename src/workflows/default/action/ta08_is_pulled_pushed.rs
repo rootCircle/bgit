@@ -29,10 +29,6 @@ impl ActionStep for IsPushedPulled {
         // Check for unpulled commits (behind remote)
         // let has_unpulled = crate::events::git_status::has_unpulled_commits()?;
 
-        if true || true {
-            Ok(Step::Task(PromptStepTask(Box::new(AskPushPull::new()))))
-        } else {
-            Ok(Step::Stop)
-        }
+        Ok(Step::Task(PromptStepTask(Box::new(AskPushPull::new()))))
     }
 }

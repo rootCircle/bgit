@@ -6,4 +6,7 @@ pub(crate) mod ta05_add_to_stage;
 pub(crate) mod ta06_restore_changes;
 pub(crate) mod ta07_has_uncommitted;
 pub(crate) mod ta08_is_pulled_pushed;
-pub (crate) mod ta09_pull_push;
+pub(crate) mod ta09_pull_push;
+pub(crate) mod ta10_is_branch_main;
+pub(crate) mod ta11_is_sole_contributor;
+pub(crate) mod ta12_move_changes;

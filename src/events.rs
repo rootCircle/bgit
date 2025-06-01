@@ -9,7 +9,7 @@ use crate::{
     util::find_hook_with_extension,
 };
 pub mod git_add;
-mod git_branch;
+pub mod git_branch;
 mod git_checkout;
 mod git_clean;
 pub mod git_clone;
@@ -21,6 +21,7 @@ pub mod git_push;
 pub mod git_restore;
 pub mod git_stash;
 pub mod git_status;
+pub mod git_log;
 
 const PENGUIN_EMOJI: &str = "🐧";
 
