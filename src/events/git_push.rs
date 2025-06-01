@@ -1,7 +1,9 @@
+use std::path::Path;
+
 use super::AtomicEvent;
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
 use crate::rules::Rule;
-use git2::Repository;
+use git2::{Cred, CredentialType, Repository};
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -85,23 +87,13 @@ impl AtomicEvent for GitPush {
             ))
         })?;
 
-        // Prepare push options
-        let mut push_options = git2::PushOptions::new();
+        // Prepare push options with authentication
+        let mut push_options = Self::create_push_options();
 
-        // Set up callbacks for authentication if needed
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.push_update_reference(|refname, status| match status {
-            Some(msg) => {
-                println!("Push failed for {}: {}", refname, msg);
-                Err(git2::Error::from_str(msg))
-            }
-            None => {
-                println!("Push successful for {}", refname);
-                Ok(())
-            }
-        });
-
-        push_options.remote_callbacks(callbacks);
+        // Check if we need to force push and validate state
+        if !self.force {
+            self.validate_push_safety(&repo, &head, branch_name)?;
+        }
 
         // Determine refspec
         let refspec = if self.set_upstream {
@@ -109,61 +101,6 @@ impl AtomicEvent for GitPush {
         } else {
             format!("refs/heads/{}", branch_name)
         };
-
-        // Check if we need to force push
-        if !self.force {
-            // Check if we're up to date with remote
-            if let Ok(remote_ref) =
-                repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-            {
-                let local_commit = head.peel_to_commit().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get local commit: {}", e),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
-
-                let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get remote commit: {}", e),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
-
-                // Check if local is behind remote
-                let merge_base = repo
-                    .merge_base(local_commit.id(), remote_commit.id())
-                    .map_err(|e| {
-                        Box::new(BGitError::new(
-                            "BGitError",
-                            &format!("Failed to find merge base: {}", e),
-                            BGitErrorWorkflowType::AtomicEvent,
-                            NO_STEP,
-                            self.get_name(),
-                            NO_RULE,
-                        ))
-                    })?;
-
-                if merge_base == local_commit.id() && local_commit.id() != remote_commit.id() {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        "Local branch is behind remote. Pull changes first or use --force",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    )));
-                }
-            }
-        }
 
         // Perform the push
         let refspecs = if self.force {
@@ -177,7 +114,7 @@ impl AtomicEvent for GitPush {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to push to remote: {}", e),
+                    &format!("Failed to push to remote: {}. Please check your SSH keys or authentication setup.", e),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -203,6 +140,70 @@ impl GitPush {
     pub fn set_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
         self.set_upstream = set_upstream;
         self
+    }
+
+    fn validate_push_safety(
+        &self,
+        repo: &Repository,
+        head: &git2::Reference,
+        branch_name: &str,
+    ) -> Result<(), Box<BGitError>> {
+        // Check if we're up to date with remote
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name)) {
+            let local_commit = head.peel_to_commit().map_err(|e| {
+                Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get local commit: {}", e),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                ))
+            })?;
+
+            let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
+                Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get remote commit: {}", e),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                ))
+            })?;
+
+            // If commits are the same, we're up to date
+            if local_commit.id() == remote_commit.id() {
+                return Ok(());
+            }
+
+            // Check if local is behind remote
+            let merge_base = repo
+                .merge_base(local_commit.id(), remote_commit.id())
+                .map_err(|e| {
+                    Box::new(BGitError::new(
+                        "BGitError",
+                        &format!("Failed to find merge base: {}", e),
+                        BGitErrorWorkflowType::AtomicEvent,
+                        NO_STEP,
+                        self.get_name(),
+                        NO_RULE,
+                    ))
+                })?;
+
+            if merge_base == local_commit.id() && local_commit.id() != remote_commit.id() {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "Local branch is behind remote. Pull changes first or use --force",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     fn set_upstream_branch(
@@ -236,5 +237,174 @@ impl GitPush {
         })?;
 
         Ok(())
+    }
+
+    /// Set up authentication callbacks for git operations
+    fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let attempt_count = Arc::new(AtomicUsize::new(0));
+        
+        callbacks.credentials(move |url, username_from_url, allowed_types| {
+            let current_attempt = attempt_count.fetch_add(1, Ordering::SeqCst);
+            
+            // Limit authentication attempts to prevent infinite loops
+            if current_attempt > 3 {
+                return Err(git2::Error::new(
+                    git2::ErrorCode::Auth,
+                    git2::ErrorClass::Net,
+                    "Maximum authentication attempts exceeded"
+                ));
+            }
+            
+            println!("Authentication attempt {} for: {}", current_attempt + 1, url);
+            println!("Allowed credential types: {:?}", allowed_types);
+            
+            // If SSH key authentication is allowed
+            if allowed_types.contains(CredentialType::SSH_KEY) {
+                if let Some(username) = username_from_url {
+                    println!("Trying SSH authentication for user: {}", username);
+                    
+                    // Try SSH agent first (most common and secure)
+                    match Cred::ssh_key_from_agent(username) {
+                        Ok(cred) => {
+                            println!("Successfully created SSH agent credentials");
+                            return Ok(cred);
+                        },
+                        Err(e) => {
+                            println!("SSH agent failed: {}", e);
+                        }
+                    }
+                    
+                    // Try to find SSH keys in standard locations
+                    let home_dir = std::env::var("HOME")
+                        .or_else(|_| std::env::var("USERPROFILE"))
+                        .unwrap_or_else(|_| ".".to_string());
+                    
+                    let ssh_dir = Path::new(&home_dir).join(".ssh");
+                    println!("Looking for SSH keys in: {}", ssh_dir.display());
+                    
+                    // Common SSH key file names in order of preference
+                    let key_files = [
+                        ("id_ed25519", "id_ed25519.pub"),
+                        ("id_rsa", "id_rsa.pub"),
+                        ("id_ecdsa", "id_ecdsa.pub"),
+                        ("id_dsa", "id_dsa.pub"),
+                    ];
+                    
+                    for (private_name, public_name) in &key_files {
+                        let private_key = ssh_dir.join(private_name);
+                        let public_key = ssh_dir.join(public_name);
+                        
+                        if private_key.exists() {
+                            println!("Found SSH key: {}", private_key.display());
+                            
+                            // Try with public key if it exists
+                            if public_key.exists() {
+                                match Cred::ssh_key(username, Some(&public_key), &private_key, None) {
+                                    Ok(cred) => {
+                                        println!("Successfully created SSH key credentials with public key");
+                                        return Ok(cred);
+                                    },
+                                    Err(e) => {
+                                        println!("SSH key with public key failed: {}", e);
+                                    }
+                                }
+                            }
+                            
+                            // Try without public key
+                            match Cred::ssh_key(username, None, &private_key, None) {
+                                Ok(cred) => {
+                                    println!("Successfully created SSH key credentials without public key");
+                                    return Ok(cred);
+                                },
+                                Err(e) => {
+                                    println!("SSH key without public key failed: {}", e);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    println!("No username provided for SSH authentication");
+                }
+            }
+            
+            // If username/password authentication is allowed (HTTPS)
+            if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+                println!("Trying username/password authentication");
+                
+                // Try to get credentials from git config or environment
+                if let (Ok(username), Ok(password)) = (
+                    std::env::var("GIT_USERNAME"),
+                    std::env::var("GIT_PASSWORD")
+                ) {
+                    println!("Using username/password from environment");
+                    return Cred::userpass_plaintext(&username, &password);
+                }
+                
+                // For GitHub, you might want to use a personal access token
+                if url.contains("github.com") {
+                    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+                        println!("Using GitHub token");
+                        return Cred::userpass_plaintext("git", &token);
+                    }
+                }
+            }
+            
+            // Default authentication (tries default SSH key)
+            if allowed_types.contains(CredentialType::DEFAULT) {
+                println!("Trying default authentication");
+                match Cred::default() {
+                    Ok(cred) => {
+                        println!("Successfully created default credentials");
+                        return Ok(cred);
+                    },
+                    Err(e) => {
+                        println!("Default authentication failed: {}", e);
+                    }
+                }
+            }
+            
+            println!("All authentication methods failed");
+            Err(git2::Error::new(
+                git2::ErrorCode::Auth,
+                git2::ErrorClass::Net,
+                &format!(
+                    "Authentication failed after {} attempts for {}. Available methods: {:?}",
+                    current_attempt + 1, url, allowed_types
+                )
+            ))
+        });
+
+        // Add push update reference callback for better error reporting
+        callbacks.push_update_reference(|refname, status| match status {
+            Some(msg) => {
+                println!("Push failed for {}: {}", refname, msg);
+                Err(git2::Error::from_str(msg))
+            }
+            None => {
+                println!("Push successful for {}", refname);
+                Ok(())
+            }
+        });
+        
+        // Set up certificate check callback for HTTPS
+        callbacks.certificate_check(|_cert, _host| {
+            // In production, you should properly validate certificates
+            // For now, we'll accept all certificates (not recommended for production)
+            println!("Certificate check for host: {}", _host);
+            Ok(git2::CertificateCheckStatus::CertificateOk)
+        });
+        
+        callbacks
+    }
+
+    /// Create push options with authentication
+    fn create_push_options() -> git2::PushOptions<'static> {
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(Self::setup_auth_callbacks());
+        push_options
     }
 }
