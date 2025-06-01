@@ -371,7 +371,7 @@ impl GitPush {
             Err(git2::Error::new(
                 git2::ErrorCode::Auth,
                 git2::ErrorClass::Net,
-                &format!(
+                format!(
                     "Authentication failed after {} attempts for {}. Available methods: {:?}",
                     current_attempt + 1, url, allowed_types
                 )

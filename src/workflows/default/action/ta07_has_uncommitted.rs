@@ -1,4 +1,5 @@
 use super::ta08_is_pulled_pushed::IsPushedPulled;
+use super::ta10_is_branch_main::IsBranchMain;
 use crate::step::Task::ActionStepTask;
 use crate::{
     bgit_error::BGitError,
@@ -29,8 +30,7 @@ impl ActionStep for HasUncommitted {
         let has_staged = crate::events::git_status::has_staged_files()?;
 
         if has_unstaged || has_staged {
-            // CHANGE this
-            Ok(Step::Stop)
+            Ok(Step::Task(ActionStepTask(Box::new(IsBranchMain::new()))))
         } else {
             println!("No uncommitted changes found.");
             Ok(Step::Task(ActionStepTask(Box::new(IsPushedPulled::new()))))
