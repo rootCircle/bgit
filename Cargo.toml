@@ -19,6 +19,7 @@ git2 = "0.20.0"
 indicatif = "0.17.11"
 google-generative-ai-rs = { version = "0.3.4", features = ["beta"] }
 tokio = { version = "*", features = ["full"] }
+regex = "1.11.1"
 
 [profile.dev]
 opt-level = 0

@@ -146,6 +146,7 @@ dependencies = [
  "git2",
  "google-generative-ai-rs",
  "indicatif",
+ "regex",
  "tokio",
 ]
 
