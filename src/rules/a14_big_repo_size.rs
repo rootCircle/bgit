@@ -158,6 +158,7 @@ impl IsRepoSizeTooBig {
     }
 
     // Method to set custom size limit
+    #[allow(dead_code)]
     pub fn with_max_size_mb(mut self, max_size_mb: u64) -> Self {
         self.max_size_mb = max_size_mb;
         self

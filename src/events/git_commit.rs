@@ -93,7 +93,7 @@ impl GitCommit {
         })?;
 
         // Check if index has any entries (staged files)
-        Ok(index.len() > 0)
+        Ok(!index.is_empty())
     }
 
     /// Commit the staged changes with the provided message

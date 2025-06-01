@@ -1,4 +1,4 @@
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::bgit_error::BGitError;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use regex::Regex;
 use std::process::Command;
@@ -47,7 +47,7 @@ impl Rule for NoSecretsStaged {
                 }
 
                 let diff_content = String::from_utf8_lossy(&output_response.stdout);
-                
+
                 if let Some(secrets) = self.detect_secrets(&diff_content) {
                     Ok(RuleOutput::Exception(format!(
                         "Potential secrets detected in staged files: {}",
@@ -122,15 +122,11 @@ impl NoSecretsStaged {
         // Check for common configuration files that might contain secrets
         let lines: Vec<&str> = content.lines().collect();
         for line in &lines {
-            if line.starts_with("+++") || line.starts_with("---") {
-                if line.contains(".env")
+            if (line.starts_with("+++") || line.starts_with("---")) && (line.contains(".env")
                     || line.contains("config.json")
-                    || line.contains("secrets.")
-                    || line.contains("credentials")
-                {
-                    found_secrets.push("Sensitive configuration file".to_string());
-                    break;
-                }
+                    || line.contains("secrets.") || line.contains("credentials")) {
+                found_secrets.push("Sensitive configuration file".to_string());
+                break;
             }
         }
 
