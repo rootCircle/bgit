@@ -120,8 +120,6 @@ impl GitLog {
         // Collect all unique authors and committers
         let mut authors = HashSet::new();
         let mut committers = HashSet::new();
-        let mut total_commits = 0;
-        let mut current_user_commits = 0;
 
         let mut revwalk = repo.revwalk().map_err(|e| {
             Box::new(BGitError::new(
@@ -168,28 +166,24 @@ impl GitLog {
                 ))
             })?;
 
-            total_commits += 1;
-
             // Get author information
             let author = commit.author();
             if let (Some(author_name), Some(author_email)) = (author.name(), author.email()) {
                 authors.insert((author_name.to_string(), author_email.to_string()));
-                
-                if author_name == current_user_name && author_email == current_user_email {
-                    current_user_commits += 1;
-                }
             }
 
             // Get committer information
             let committer = commit.committer();
-            if let (Some(committer_name), Some(committer_email)) = (committer.name(), committer.email()) {
+            if let (Some(committer_name), Some(committer_email)) =
+                (committer.name(), committer.email())
+            {
                 committers.insert((committer_name.to_string(), committer_email.to_string()));
             }
         }
 
         // Check if current user is the sole contributor
-        let is_sole_author = authors.len() == 1 && 
-            authors.contains(&(current_user_name.clone(), current_user_email.clone()));
+        let is_sole_author = authors.len() == 1
+            && authors.contains(&(current_user_name.clone(), current_user_email.clone()));
 
         Ok(is_sole_author)
     }

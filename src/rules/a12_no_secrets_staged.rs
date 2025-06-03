@@ -178,10 +178,8 @@ impl NoSecretsStaged {
             Self::build_bearer_token_pattern(),
         ];
 
-        for pattern in complex_patterns {
-            if let Some(p) = pattern {
-                patterns.push(p);
-            }
+        for pattern in complex_patterns.into_iter().flatten() {
+            patterns.push(pattern);
         }
 
         patterns
@@ -398,19 +396,20 @@ impl NoSecretsStaged {
                 }
 
                 // Check if variable name suggests it might be a secret
-                let suspicious_names =
-                    vec!["key", "secret", "token", "password", "pwd", "auth", "api"];
+                let suspicious_names = ["key", "secret", "token", "password", "pwd", "auth", "api"];
                 let is_suspicious_name =
                     suspicious_names.iter().any(|&name| var_name.contains(name));
 
-                if is_suspicious_name && value.len() >= 16 && Self::calculate_entropy(value) > 4.0 {
-                    if Self::validate_not_common_word(value) {
-                        found_secrets.push(format!(
-                            "High-entropy value in variable '{}' (entropy: {:.2})",
-                            var_name,
-                            Self::calculate_entropy(value)
-                        ));
-                    }
+                if is_suspicious_name
+                    && value.len() >= 16
+                    && Self::calculate_entropy(value) > 4.0
+                    && Self::validate_not_common_word(value)
+                {
+                    found_secrets.push(format!(
+                        "High-entropy value in variable '{}' (entropy: {:.2})",
+                        var_name,
+                        Self::calculate_entropy(value)
+                    ));
                 }
             }
         }

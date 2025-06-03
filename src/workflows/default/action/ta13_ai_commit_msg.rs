@@ -88,14 +88,6 @@ impl ActionStep for AICommit {
 }
 
 impl AICommit {
-    /// Create a new AICommit instance with an API key
-    pub fn with_api_key(api_key: String) -> Self {
-        AICommit {
-            name: "ai_commit".to_owned(),
-            api_key: Some(api_key),
-        }
-    }
-
     /// Get git diff content as string (staged changes)
     fn get_git_diff(&self) -> Result<String, Box<BGitError>> {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
