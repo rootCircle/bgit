@@ -104,20 +104,18 @@ impl IsRepoSizeTooBig {
         let mut total_size = 0u64;
 
         let git_dir = repo.path();
-        total_size += self
-            .calculate_directory_size(git_dir)
+        total_size += Self::calculate_directory_size(git_dir)
             .map_err(|e| format!("Failed to calculate .git directory size: {}", e))?;
 
         if let Some(workdir) = repo.workdir() {
-            total_size += self
-                .calculate_working_directory_size(workdir)
+            total_size += Self::calculate_working_directory_size(workdir)
                 .map_err(|e| format!("Failed to calculate working directory size: {}", e))?;
         }
 
         Ok(total_size)
     }
 
-    fn calculate_directory_size(&self, dir: &Path) -> Result<u64, std::io::Error> {
+    fn calculate_directory_size(dir: &Path) -> Result<u64, std::io::Error> {
         let mut size = 0u64;
 
         if dir.is_dir() {
@@ -126,7 +124,7 @@ impl IsRepoSizeTooBig {
                 let path = entry.path();
 
                 if path.is_dir() {
-                    size += self.calculate_directory_size(&path)?;
+                    size += Self::calculate_directory_size(&path)?;
                 } else {
                     size += entry.metadata()?.len();
                 }
@@ -136,7 +134,7 @@ impl IsRepoSizeTooBig {
         Ok(size)
     }
 
-    fn calculate_working_directory_size(&self, workdir: &Path) -> Result<u64, std::io::Error> {
+    fn calculate_working_directory_size(workdir: &Path) -> Result<u64, std::io::Error> {
         let mut size = 0u64;
 
         for entry in fs::read_dir(workdir)? {
@@ -144,13 +142,12 @@ impl IsRepoSizeTooBig {
             let path = entry.path();
             let file_name = entry.file_name();
 
-            // Skip .git directory
             if file_name == ".git" {
                 continue;
             }
 
             if path.is_dir() {
-                size += self.calculate_working_directory_size(&path)?;
+                size += Self::calculate_working_directory_size(&path)?;
             } else {
                 size += entry.metadata()?.len();
             }
@@ -174,13 +171,11 @@ impl IsRepoSizeTooBig {
             let mut is_referenced = false;
 
             if let Ok(refs) = repo.references() {
-                for reference in refs {
-                    if let Ok(reference) = reference {
-                        if let Some(target_oid) = reference.target() {
-                            if target_oid == *oid {
-                                is_referenced = true;
-                                break;
-                            }
+                for reference in refs.flatten() {
+                    if let Some(target_oid) = reference.target() {
+                        if target_oid == *oid {
+                            is_referenced = true;
+                            break;
                         }
                     }
                 }
