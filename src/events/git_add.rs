@@ -3,19 +3,19 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use dialoguer::{theme::ColorfulTheme, MultiSelect, Select};
 use git2::{IndexAddOption, Repository};
 use std::path::Path;
 
 pub(crate) struct GitAdd {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
+    add_mode: AddMode,
 }
 
 #[derive(Debug, Clone)]
 pub enum AddMode {
     All,
-    Selective,
+    Selective(Vec<String>),
 }
 
 impl AtomicEvent for GitAdd {
@@ -26,6 +26,7 @@ impl AtomicEvent for GitAdd {
         GitAdd {
             name: "git_add".to_owned(),
             pre_check_rules: vec![],
+            add_mode: AddMode::All,
         }
     }
 
@@ -46,50 +47,36 @@ impl AtomicEvent for GitAdd {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        // Get list of unstaged files
-        let unstaged_files = super::git_status::get_unstaged_files_list()?;
-
-        if unstaged_files.is_empty() {
-            println!("No unstaged files found.");
-            return Ok(false);
-        }
-
-        // Ask user to choose between adding all files or selecting specific files
-        let add_mode = self.prompt_add_mode()?;
-
-        match add_mode {
-            AddMode::All => self.add_all_files(),
-            AddMode::Selective => self.add_selective_files(unstaged_files),
+        match &self.add_mode {
+            AddMode::All => {
+                // Get list of unstaged files to check if any exist
+                let unstaged_files = super::git_status::get_unstaged_files_list()?;
+                if unstaged_files.is_empty() {
+                    println!("No unstaged files found.");
+                    return Ok(false);
+                }
+                self.add_all_files()
+            }
+            AddMode::Selective(selected_files) => {
+                if selected_files.is_empty() {
+                    println!("No files selected.");
+                    return Ok(false);
+                }
+                self.add_specific_files(selected_files.iter().map(|s| s.as_str()).collect())?;
+                println!(
+                    "Successfully added {} file(s) to staging area.",
+                    selected_files.len()
+                );
+                Ok(true)
+            }
         }
     }
 }
 
 impl GitAdd {
-    /// Prompt user to choose between adding all files or selecting specific files
-    fn prompt_add_mode(&self) -> Result<AddMode, Box<BGitError>> {
-        let options = vec!["Add all unstaged files", "Select specific files to add"];
-
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Choose add mode:")
-            .default(0)
-            .items(&options)
-            .interact()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get user selection: {}", e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
-
-        match selection {
-            0 => Ok(AddMode::All),
-            1 => Ok(AddMode::Selective),
-            _ => Ok(AddMode::All),
-        }
+    pub fn with_add_mode(mut self, mode: AddMode) -> Self {
+        self.add_mode = mode;
+        self
     }
 
     /// Add all unstaged files to staging area
@@ -145,59 +132,6 @@ impl GitAdd {
         })?;
 
         println!("All unstaged files have been added to staging area.");
-        Ok(true)
-    }
-
-    /// Allow user to select specific files to add to staging area
-    fn add_selective_files(
-        &self,
-        unstaged_files: Vec<super::git_status::FileStatus>,
-    ) -> Result<bool, Box<BGitError>> {
-        // Create display strings for the files
-        let file_display: Vec<String> = unstaged_files
-            .iter()
-            .map(|file| format!("{} ({})", file.path, file.status_type))
-            .collect();
-
-        if file_display.is_empty() {
-            println!("No files to select.");
-            return Ok(false);
-        }
-
-        // Let user select multiple files
-        let selections = MultiSelect::with_theme(&ColorfulTheme::default())
-            .with_prompt("Select files to add (use Space to select, Enter to confirm):")
-            .items(&file_display)
-            .interact()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get file selections: {}", e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
-
-        if selections.is_empty() {
-            println!("No files selected.");
-            return Ok(false);
-        }
-
-        // Get the selected file paths
-        let selected_files: Vec<&str> = selections
-            .iter()
-            .map(|&i| unstaged_files[i].path.as_str())
-            .collect();
-
-        // Add selected files to staging area
-        self.add_specific_files(selected_files)?;
-
-        println!(
-            "Successfully added {} file(s) to staging area.",
-            selections.len()
-        );
         Ok(true)
     }
 

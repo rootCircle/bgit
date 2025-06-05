@@ -1,8 +1,8 @@
 use crate::step::Task::PromptStepTask;
-use crate::workflows::default::action::ta05_add_to_stage::AddToStaging;
+use crate::workflows::default::prompt::pa05x_ask_add_mode::AskAddMode;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
+    step::{PromptStep, Step},
 };
 use dialoguer::{theme::ColorfulTheme, Select};
 
@@ -43,7 +43,7 @@ impl PromptStep for AskToAdd {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(AddToStaging::new())))),
+            0 => Ok(Step::Task(PromptStepTask(Box::new(AskAddMode::new())))),
             1 => Ok(Step::Task(PromptStepTask(Box::new(AskToRestore::new())))),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",
