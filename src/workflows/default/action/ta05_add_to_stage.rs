@@ -8,30 +8,6 @@ use super::ta07_has_uncommitted::HasUncommitted;
 use crate::step::Task::ActionStepTask;
 pub(crate) struct AddToStaging {
     name: String,
-    add_all: bool,
-}
-
-impl AddToStaging {
-    #[allow(dead_code)]
-    pub fn with_all() -> Self {
-        AddToStaging {
-            name: "add_to_staging".to_owned(),
-            add_all: true,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_selective() -> Self {
-        AddToStaging {
-            name: "add_to_staging".to_owned(),
-            add_all: false,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn set_add_all(&mut self, add_all: bool) {
-        self.add_all = add_all;
-    }
 }
 
 impl ActionStep for AddToStaging {
@@ -41,7 +17,6 @@ impl ActionStep for AddToStaging {
     {
         AddToStaging {
             name: "add_to_staging".to_owned(),
-            add_all: false,
         }
     }
 

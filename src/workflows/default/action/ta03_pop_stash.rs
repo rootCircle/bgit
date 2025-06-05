@@ -11,20 +11,6 @@ pub(crate) struct PopStash {
     stash_index: Option<usize>,
 }
 
-impl PopStash {
-    #[allow(dead_code)]
-    pub fn with_index(index: usize) -> Self {
-        PopStash {
-            name: "pop_stash".to_owned(),
-            stash_index: Some(index),
-        }
-    }
-    #[allow(dead_code)]
-    pub fn set_index(&mut self, index: usize) {
-        self.stash_index = Some(index);
-    }
-}
-
 impl ActionStep for PopStash {
     fn new() -> Self
     where
