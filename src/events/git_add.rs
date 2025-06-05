@@ -141,7 +141,6 @@ impl GitAdd {
             ))
         })?;
 
-        // Get the repository index
         let mut index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
@@ -153,7 +152,7 @@ impl GitAdd {
             ))
         })?;
 
-        // Add each selected file to the index
+       
         for file_path in file_paths {
             index.add_path(Path::new(file_path)).map_err(|e| {
                 Box::new(BGitError::new(
@@ -167,7 +166,7 @@ impl GitAdd {
             })?;
         }
 
-        // Write the index changes to disk
+        
         index.write().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",

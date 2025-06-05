@@ -16,12 +16,12 @@ pub mod git_clone;
 pub mod git_commit;
 mod git_filter_repo;
 pub mod git_init;
+pub mod git_log;
 pub mod git_pull;
 pub mod git_push;
 pub mod git_restore;
 pub mod git_stash;
 pub mod git_status;
-pub mod git_log;
 
 const PENGUIN_EMOJI: &str = "🐧";
 

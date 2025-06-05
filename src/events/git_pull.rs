@@ -120,7 +120,8 @@ impl AtomicEvent for GitPull {
                 // If no alternatives work, check what remote branches actually exist
                 let remote_branches: Vec<String> = repo
                     .branches(Some(git2::BranchType::Remote))
-                    .map_err(|e| format!("Failed to list remote branches: {}", e)).unwrap()
+                    .map_err(|e| format!("Failed to list remote branches: {}", e))
+                    .unwrap()
                     .filter_map(|branch_result| {
                         branch_result.ok().and_then(|(branch, _)| {
                             branch.name().ok().flatten().map(|name| name.to_string())
@@ -179,7 +180,7 @@ impl GitPull {
                 NO_RULE,
             ))
         })?;
-    
+
         let head_commit = repo
             .head()
             .map_err(|e| {
@@ -203,13 +204,13 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
         // Check if we're already up to date
         if head_commit.id() == remote_commit.id() {
             println!("Already up to date, no rebase needed");
             return Ok(());
         }
-    
+
         // Check if remote is ancestor of head (nothing to rebase)
         let merge_base = repo
             .merge_base(head_commit.id(), remote_commit.id())
@@ -223,12 +224,12 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
         if merge_base == remote_commit.id() {
             println!("Remote is ancestor of HEAD, no rebase needed");
             return Ok(());
         }
-    
+
         // Create AnnotatedCommit objects for rebase
         // Note: The branch we want to rebase (our current branch) should be 'branch'
         // The upstream/onto target should be 'upstream'
@@ -244,7 +245,7 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
         // For rebase, we typically want to rebase current HEAD onto the remote
         // Parameters: branch, upstream, onto, opts
         // branch: what to rebase (None means current HEAD)
@@ -262,9 +263,9 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
         println!("Rebase started, processing {} operations", rebase.len());
-    
+
         // Process rebase operations
         let mut operation_count = 0;
         while let Some(operation_result) = rebase.next() {
@@ -279,9 +280,13 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
-            println!("Processing rebase operation {}: {:?}", operation_count, operation.kind());
-    
+
+            println!(
+                "Processing rebase operation {}: {:?}",
+                operation_count,
+                operation.kind()
+            );
+
             // Check if there are conflicts
             let index = repo.index().map_err(|e| {
                 Box::new(BGitError::new(
@@ -293,7 +298,7 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
             if index.has_conflicts() {
                 // Abort the rebase to prevent data loss
                 rebase.abort().map_err(|e| {
@@ -306,7 +311,7 @@ impl GitPull {
                         NO_RULE,
                     ))
                 })?;
-    
+
                 return Err(Box::new(BGitError::new(
                     "BGitError",
                     "Rebase conflicts detected. The rebase has been aborted to prevent data loss. Please resolve conflicts manually and retry.",
@@ -316,7 +321,7 @@ impl GitPull {
                     NO_RULE,
                 )));
             }
-    
+
             // Get signature for committing
             let signature = repo.signature().map_err(|e| {
                 Box::new(BGitError::new(
@@ -328,22 +333,23 @@ impl GitPull {
                     NO_RULE,
                 ))
             })?;
-    
+
             // Commit the rebased operation
             let _commit_id = rebase.commit(None, &signature, None).map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to commit during rebase operation {}: {}", operation_count, e),
+                    &format!(
+                        "Failed to commit during rebase operation {}: {}",
+                        operation_count, e
+                    ),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
                     NO_RULE,
                 ))
             })?;
-    
-            
         }
-    
+
         // Finish the rebase
         rebase.finish(None).map_err(|e| {
             Box::new(BGitError::new(
@@ -355,8 +361,11 @@ impl GitPull {
                 NO_RULE,
             ))
         })?;
-    
-        println!("Rebase completed successfully with {} operations", operation_count);
+
+        println!(
+            "Rebase completed successfully with {} operations",
+            operation_count
+        );
         Ok(())
     }
 
@@ -481,10 +490,10 @@ impl GitPull {
     fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
-        
+
         let mut callbacks = git2::RemoteCallbacks::new();
         let attempt_count = Arc::new(AtomicUsize::new(0));
-        
+
         callbacks.credentials(move |url, username_from_url, allowed_types| {
             let current_attempt = attempt_count.fetch_add(1, Ordering::SeqCst);
             
@@ -615,7 +624,7 @@ impl GitPull {
                 )
             ))
         });
-        
+
         // Set up certificate check callback for HTTPS
         callbacks.certificate_check(|_cert, _host| {
             // In production, you should properly validate certificates
@@ -623,7 +632,7 @@ impl GitPull {
             println!("Certificate check for host: {}", _host);
             Ok(git2::CertificateCheckStatus::CertificateOk)
         });
-        
+
         callbacks
     }
 

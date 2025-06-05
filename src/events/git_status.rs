@@ -31,7 +31,7 @@ impl AtomicEvent for GitStatus {
         GitStatus {
             name: "git_status".to_owned(),
             pre_check_rules: vec![],
-            mode: StatusMode::CheckOnly, 
+            mode: StatusMode::CheckOnly,
         }
     }
 

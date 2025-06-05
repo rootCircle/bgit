@@ -1,12 +1,13 @@
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{PromptStep, Step}, workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled,
-};
-use dialoguer::{theme::ColorfulTheme, Select};
+use super::pa11_ask_ai_commit_msg::AskAICommitMessage;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
-use super::pa11_ask_ai_commit_msg::AskAICommitMessage;
+use crate::{
+    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
+    step::{PromptStep, Step},
+    workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled,
+};
+use dialoguer::{theme::ColorfulTheme, Select};
 pub(crate) struct AskCommit {
     name: String,
 }
@@ -43,7 +44,9 @@ impl PromptStep for AskCommit {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(PromptStepTask(Box::new(AskAICommitMessage::new())))),
+            0 => Ok(Step::Task(PromptStepTask(Box::new(
+                AskAICommitMessage::new(),
+            )))),
             1 => Ok(Step::Task(ActionStepTask(Box::new(IsPushedPulled::new())))),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",
