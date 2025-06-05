@@ -27,7 +27,7 @@ impl ActionStep for HasUnstaged {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_status = GitStatus::new();
-        match git_status.raw_execute() {
+        match git_status.execute() {
             Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new())))),
             Ok(false) => Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new())))),
             Err(e) => Err(e),

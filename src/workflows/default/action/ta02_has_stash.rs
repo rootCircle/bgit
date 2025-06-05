@@ -5,8 +5,6 @@ use crate::workflows::default::action::ta04_has_unstaged::HasUnstaged;
 use crate::workflows::default::prompt::pa04_ask_pop_stash::AskPopStash;
 use crate::{
     bgit_error::BGitError,
-    events::{git_add::GitAdd, AtomicEvent},
-    rules::{a01_git_install::IsGitInstalledLocally, Rule},
     step::{ActionStep, Step},
 };
 use git2::Repository;
@@ -40,10 +38,6 @@ impl ActionStep for HasStash {
                     false
                 })
                 .is_ok();
-
-            let mut git_add_event = GitAdd::new();
-            git_add_event.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
-            // git_add_event.execute()?;
 
             if has_stash {
                 println!("Stash exists in the repository.");

@@ -17,7 +17,7 @@ impl AtomicEvent for GitPull {
     {
         GitPull {
             pre_check_rules: vec![],
-            rebase: false,
+            rebase: true,
         }
     }
 
@@ -160,7 +160,7 @@ impl AtomicEvent for GitPull {
 }
 
 impl GitPull {
-    pub fn set_rebase(&mut self, rebase: bool) -> &mut Self {
+    pub fn with_rebase(&mut self, rebase: bool) -> &mut Self {
         self.rebase = rebase;
         self
     }
@@ -207,7 +207,6 @@ impl GitPull {
 
         // Check if we're already up to date
         if head_commit.id() == remote_commit.id() {
-            println!("Already up to date, no rebase needed");
             return Ok(());
         }
 
@@ -226,7 +225,6 @@ impl GitPull {
             })?;
 
         if merge_base == remote_commit.id() {
-            println!("Remote is ancestor of HEAD, no rebase needed");
             return Ok(());
         }
 
@@ -264,28 +262,10 @@ impl GitPull {
                 ))
             })?;
 
-        println!("Rebase started, processing {} operations", rebase.len());
-
         // Process rebase operations
         let mut operation_count = 0;
-        while let Some(operation_result) = rebase.next() {
+        while let Some(_) = rebase.next() {
             operation_count += 1;
-            let operation = operation_result.map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Rebase operation {} failed: {}. This might indicate merge conflicts that need manual resolution.", operation_count, e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
-
-            println!(
-                "Processing rebase operation {}: {:?}",
-                operation_count,
-                operation.kind()
-            );
 
             // Check if there are conflicts
             let index = repo.index().map_err(|e| {
@@ -362,10 +342,6 @@ impl GitPull {
             ))
         })?;
 
-        println!(
-            "Rebase completed successfully with {} operations",
-            operation_count
-        );
         Ok(())
     }
 
@@ -546,7 +522,7 @@ impl GitPull {
                                         return Ok(cred);
                                     }
                                     Err(e) => {
-                                        println!("SSH key with public key failed: {}", e);
+                                        eprintln!("SSH key with public key failed: {}", e);
                                     }
                                 }
                             }
@@ -557,13 +533,13 @@ impl GitPull {
                                     return Ok(cred);
                                 }
                                 Err(e) => {
-                                    println!("SSH key without public key failed: {}", e);
+                                    eprintln!("SSH key without public key failed: {}", e);
                                 }
                             }
                         }
                     }
                 } else {
-                    println!("No username provided for SSH authentication");
+                    eprintln!("No username provided for SSH authentication");
                 }
             }
 
@@ -579,7 +555,6 @@ impl GitPull {
                 // For GitHub, you might want to use a personal access token
                 if url.contains("github.com") {
                     if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-                        println!("Using GitHub token");
                         return Cred::userpass_plaintext("git", &token);
                     }
                 }
@@ -589,11 +564,10 @@ impl GitPull {
             if allowed_types.contains(CredentialType::DEFAULT) {
                 match Cred::default() {
                     Ok(cred) => {
-                        println!("Successfully created default credentials");
                         return Ok(cred);
                     }
                     Err(e) => {
-                        println!("Default authentication failed: {}", e);
+                        eprintln!("Default authentication failed: {}", e);
                     }
                 }
             }

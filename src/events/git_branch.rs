@@ -3,12 +3,11 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use git2::{BranchType, Repository, StashApplyOptions, StashFlags};
+use git2::{build::CheckoutBuilder, BranchType, Repository, StashApplyOptions, StashFlags};
 use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub(crate) enum BranchOperation {
-    List,
     CheckCurrentBranch,
     MoveChanges,
 }
@@ -16,7 +15,7 @@ pub(crate) enum BranchOperation {
 pub(crate) struct GitBranch {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
-    operation: BranchOperation,
+    operation: Option<BranchOperation>,
     target_branch_name: Option<String>,
     stash_message: Option<String>,
 }
@@ -26,7 +25,7 @@ impl GitBranch {
         GitBranch {
             name: "git_branch".to_owned(),
             pre_check_rules: vec![],
-            operation: BranchOperation::CheckCurrentBranch,
+            operation: Some(BranchOperation::CheckCurrentBranch),
             target_branch_name: None,
             stash_message: None,
         }
@@ -37,13 +36,13 @@ impl GitBranch {
         GitBranch {
             name: "git_branch".to_owned(),
             pre_check_rules: vec![],
-            operation: BranchOperation::MoveChanges,
+            operation: Some(BranchOperation::MoveChanges),
             target_branch_name: Some(target_branch_name),
             stash_message: Some("Moving changes to new branch".to_string()),
         }
     }
 
-    pub fn set_stash_message(&mut self, message: String) {
+    pub fn with_stash_message(&mut self, message: String) {
         self.stash_message = Some(message);
     }
 }
@@ -56,7 +55,7 @@ impl AtomicEvent for GitBranch {
         GitBranch {
             name: "git_branch".to_owned(),
             pre_check_rules: vec![],
-            operation: BranchOperation::List,
+            operation: None,
             target_branch_name: None,
             stash_message: None,
         }
@@ -67,12 +66,12 @@ impl AtomicEvent for GitBranch {
     }
 
     fn get_action_description(&self) -> &str {
-        match self.operation {
-            BranchOperation::List => "List all branches",
-            BranchOperation::CheckCurrentBranch => {
+        match &self.operation {
+            Some(BranchOperation::CheckCurrentBranch) => {
                 "Check if current branch is master, main, or dev"
             }
-            BranchOperation::MoveChanges => "Move current changes to a new branch",
+            Some(BranchOperation::MoveChanges) => "Move current changes to a new branch",
+            None => "Branch operation (no operation specified)",
         }
     }
 
@@ -97,82 +96,22 @@ impl AtomicEvent for GitBranch {
             ))
         })?;
 
-        match self.operation {
-            BranchOperation::List => self.list_branches_impl(&repo),
-            BranchOperation::CheckCurrentBranch => self.check_current_branch_impl(&repo),
-            BranchOperation::MoveChanges => self.move_changes_impl(&mut repo),
+        match &self.operation {
+            Some(BranchOperation::CheckCurrentBranch) => self.check_current_branch_impl(&repo),
+            Some(BranchOperation::MoveChanges) => self.move_changes_impl(&mut repo),
+            None => Err(Box::new(BGitError::new(
+                "BGitError",
+                "No branch operation specified",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                &self.name,
+                NO_RULE,
+            ))),
         }
     }
 }
 
 impl GitBranch {
-    fn list_branches_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
-        // Get current branch for marking
-        let current_branch = match repo.head() {
-            Ok(head) => {
-                if head.is_branch() {
-                    head.shorthand().map(|s| s.to_string())
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        };
-
-        // Get all local branches
-        let branches = repo.branches(Some(BranchType::Local)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to list branches: {}", e),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        println!("Local branches:");
-        let mut branch_count = 0;
-
-        for branch_result in branches {
-            let (branch, _branch_type) = branch_result.map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to process branch: {}", e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
-
-            if let Some(branch_name) = branch.name().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get branch name: {}", e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })? {
-                let marker = if Some(branch_name.to_string()) == current_branch {
-                    "* "
-                } else {
-                    "  "
-                };
-                println!("{}{}", marker, branch_name);
-                branch_count += 1;
-            }
-        }
-
-        if branch_count == 0 {
-            println!("No local branches found.");
-        }
-
-        Ok(true)
-    }
-
     fn check_current_branch_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
         // Get current branch
         let head = repo.head().map_err(|e| {
@@ -187,7 +126,7 @@ impl GitBranch {
         })?;
 
         if !head.is_branch() {
-            println!("Currently in detached HEAD state (not on any branch)");
+            eprintln!("Currently in detached HEAD state (not on any branch)");
             return Ok(false);
         }
 
@@ -202,24 +141,13 @@ impl GitBranch {
             ))
         })?;
 
-        println!("Current branch: {}", current_branch_name);
-
         // Check if current branch is one of the main branches
-        let is_main_branch = match current_branch_name {
-            "master" | "main" | "dev" => {
-                println!("✓ Currently on a main branch ({})", current_branch_name);
-                true
-            }
-            _ => {
-                println!("✗ Not on a main branch (master, main, or dev)");
-                false
-            }
-        };
+        let is_main_branch = matches!(current_branch_name, "master" | "main" | "dev");
 
         Ok(is_main_branch)
     }
 
-    // New implementation for move changes operation
+    // Checkout to new a branch and carry forward the current code changes
     fn move_changes_impl(&self, repo: &mut Repository) -> Result<bool, Box<BGitError>> {
         let target_branch_name = match &self.target_branch_name {
             Some(name) => name,
@@ -268,7 +196,6 @@ impl GitBranch {
             .as_deref()
             .unwrap_or("Moving changes to new branch");
         let _stash_id = self.save_changes_to_stash(repo, stash_message)?;
-        println!("Saved changes to stash: {}", stash_message);
 
         // Step 2: Create new branch from current HEAD
         // Limit the scope of target_commit to release the immutable borrow
@@ -309,8 +236,6 @@ impl GitBranch {
                     ))
                 })?;
 
-            println!("Created branch '{}'", target_branch_name);
-
             // Get the branch reference name
             let branch = repo
                 .find_branch(target_branch_name, BranchType::Local)
@@ -330,7 +255,6 @@ impl GitBranch {
 
             let branch_ref = branch.get();
             branch_ref.name().unwrap().to_string()
-            // target_commit is dropped here, releasing the immutable borrow
         };
 
         // Step 3: Checkout the new branch
@@ -345,7 +269,7 @@ impl GitBranch {
             ))
         })?;
 
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+        repo.checkout_head(Some(CheckoutBuilder::default().force()))
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
@@ -356,8 +280,6 @@ impl GitBranch {
                     NO_RULE,
                 ))
             })?;
-
-        println!("Switched to branch '{}'", target_branch_name);
 
         // Step 4: Pop the stash to apply changes to the new branch
         // Now we can safely mutably borrow repo because target_commit has been dropped
@@ -372,12 +294,6 @@ impl GitBranch {
                 NO_RULE,
             ))
         })?;
-
-        println!("Applied changes to branch '{}'", target_branch_name);
-        println!(
-            "Successfully moved changes to new branch '{}'",
-            target_branch_name
-        );
 
         Ok(true)
     }

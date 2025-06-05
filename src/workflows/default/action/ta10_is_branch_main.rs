@@ -30,7 +30,7 @@ impl ActionStep for IsBranchMain {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_branch = GitBranch::check_current_branch();
-        match git_branch.raw_execute() {
+        match git_branch.execute() {
             Ok(true) => Ok(Step::Task(ActionStepTask(Box::new(
                 IsSoleContributor::new(),
             )))),

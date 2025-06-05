@@ -29,7 +29,7 @@ impl ActionStep for PopStash {
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_stash = GitStash::pop_stash(self.stash_index);
 
-        git_stash.raw_execute()?;
+        git_stash.execute()?;
         println!("Stash popped successfully.");
         Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new()))))
     }
