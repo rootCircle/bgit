@@ -1,4 +1,4 @@
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::Repository;
 use std::fs;
@@ -34,10 +34,16 @@ impl Rule for IsRepoSizeTooBig {
     }
 
     fn check(&self) -> Result<RuleOutput, Box<BGitError>> {
-        let repo = match Repository::open(".") {
-            Ok(repo) => repo,
-            Err(_) => return Ok(RuleOutput::Exception("Not in a git repository".to_string())),
-        };
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to discover repository: {}", e),
+                BGitErrorWorkflowType::Rules,
+                NO_STEP,
+                self.get_name(),
+                NO_RULE,
+            ))
+        })?;
 
         match self.calculate_repo_size(&repo) {
             Ok(repo_size_bytes) => {
@@ -62,19 +68,16 @@ impl Rule for IsRepoSizeTooBig {
     fn try_fix(&self) -> Result<bool, Box<BGitError>> {
         println!("Attempting to reduce repository size...");
 
-        let repo = match Repository::open(".") {
-            Ok(repo) => repo,
-            Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "Failed to open repository",
-                    &e.to_string(),
-                    BGitErrorWorkflowType::Rules,
-                    NO_STEP,
-                    NO_EVENT,
-                    self.get_name(),
-                )));
-            }
-        };
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to discover repository: {}", e),
+                BGitErrorWorkflowType::Rules,
+                NO_STEP,
+                self.get_name(),
+                NO_RULE,
+            ))
+        })?;
 
         match self.perform_cleanup(&repo) {
             Ok(success) => {
