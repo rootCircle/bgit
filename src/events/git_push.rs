@@ -40,11 +40,10 @@ impl AtomicEvent for GitPush {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        // Open the repository in the current directory
-        let repo = Repository::open(".").map_err(|e| {
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to discover repository: {}", e),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
