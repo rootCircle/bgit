@@ -258,18 +258,14 @@ impl GitPush {
                 ));
             }
             
-            println!("Authentication attempt {} for: {}", current_attempt + 1, url);
-            println!("Allowed credential types: {:?}", allowed_types);
             
             // If SSH key authentication is allowed
             if allowed_types.contains(CredentialType::SSH_KEY) {
                 if let Some(username) = username_from_url {
-                    println!("Trying SSH authentication for user: {}", username);
                     
                     // Try SSH agent first (most common and secure)
                     match Cred::ssh_key_from_agent(username) {
                         Ok(cred) => {
-                            println!("Successfully created SSH agent credentials");
                             return Ok(cred);
                         },
                         Err(e) => {
@@ -283,7 +279,6 @@ impl GitPush {
                         .unwrap_or_else(|_| ".".to_string());
                     
                     let ssh_dir = Path::new(&home_dir).join(".ssh");
-                    println!("Looking for SSH keys in: {}", ssh_dir.display());
                     
                     // Common SSH key file names in order of preference
                     let key_files = [
@@ -298,13 +293,11 @@ impl GitPush {
                         let public_key = ssh_dir.join(public_name);
                         
                         if private_key.exists() {
-                            println!("Found SSH key: {}", private_key.display());
                             
                             // Try with public key if it exists
                             if public_key.exists() {
                                 match Cred::ssh_key(username, Some(&public_key), &private_key, None) {
                                     Ok(cred) => {
-                                        println!("Successfully created SSH key credentials with public key");
                                         return Ok(cred);
                                     },
                                     Err(e) => {
@@ -316,7 +309,6 @@ impl GitPush {
                             // Try without public key
                             match Cred::ssh_key(username, None, &private_key, None) {
                                 Ok(cred) => {
-                                    println!("Successfully created SSH key credentials without public key");
                                     return Ok(cred);
                                 },
                                 Err(e) => {
@@ -332,21 +324,18 @@ impl GitPush {
             
             // If username/password authentication is allowed (HTTPS)
             if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-                println!("Trying username/password authentication");
                 
                 // Try to get credentials from git config or environment
                 if let (Ok(username), Ok(password)) = (
                     std::env::var("GIT_USERNAME"),
                     std::env::var("GIT_PASSWORD")
                 ) {
-                    println!("Using username/password from environment");
                     return Cred::userpass_plaintext(&username, &password);
                 }
                 
                 // For GitHub, you might want to use a personal access token
                 if url.contains("github.com") {
                     if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-                        println!("Using GitHub token");
                         return Cred::userpass_plaintext("git", &token);
                     }
                 }
@@ -354,10 +343,8 @@ impl GitPush {
             
             // Default authentication (tries default SSH key)
             if allowed_types.contains(CredentialType::DEFAULT) {
-                println!("Trying default authentication");
                 match Cred::default() {
                     Ok(cred) => {
-                        println!("Successfully created default credentials");
                         return Ok(cred);
                     },
                     Err(e) => {
@@ -366,7 +353,6 @@ impl GitPush {
                 }
             }
             
-            println!("All authentication methods failed");
             Err(git2::Error::new(
                 git2::ErrorCode::Auth,
                 git2::ErrorClass::Net,
