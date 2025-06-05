@@ -148,7 +148,8 @@ impl GitPush {
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
         // Check if we're up to date with remote
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name)) {
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
+        {
             let local_commit = head.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
@@ -242,13 +243,12 @@ impl GitPush {
     fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
-        
+
         let mut callbacks = git2::RemoteCallbacks::new();
         let attempt_count = Arc::new(AtomicUsize::new(0));
-        
+
         callbacks.credentials(move |url, username_from_url, allowed_types| {
             let current_attempt = attempt_count.fetch_add(1, Ordering::SeqCst);
-            
             // Limit authentication attempts to prevent infinite loops
             if current_attempt > 3 {
                 return Err(git2::Error::new(
@@ -388,7 +388,7 @@ impl GitPush {
                 Ok(())
             }
         });
-        
+
         // Set up certificate check callback for HTTPS
         callbacks.certificate_check(|_cert, _host| {
             // In production, you should properly validate certificates
@@ -396,7 +396,7 @@ impl GitPush {
             println!("Certificate check for host: {}", _host);
             Ok(git2::CertificateCheckStatus::CertificateOk)
         });
-        
+
         callbacks
     }
 
