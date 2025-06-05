@@ -59,13 +59,9 @@ impl AtomicEvent for GitCommit {
 }
 
 impl GitCommit {
-    /// Create a new GitCommit with a specific commit message
-    pub fn with_message(commit_message: String) -> Self {
-        GitCommit {
-            name: "git_commit".to_owned(),
-            commit_message,
-            pre_check_rules: vec![],
-        }
+    pub fn with_message(mut self, commit_message: String) -> Self {
+        self.commit_message = commit_message;
+        self
     }
 
     /// Check if there are any staged files ready to commit

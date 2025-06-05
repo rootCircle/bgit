@@ -48,15 +48,7 @@ impl AtomicEvent for GitAdd {
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         match &self.add_mode {
-            AddMode::All => {
-                // Get list of unstaged files to check if any exist
-                let unstaged_files = super::git_status::get_unstaged_files_list()?;
-                if unstaged_files.is_empty() {
-                    println!("No unstaged files found.");
-                    return Ok(false);
-                }
-                self.add_all_files()
-            }
+            AddMode::All => self.add_all_files(),
             AddMode::Selective(selected_files) => {
                 if selected_files.is_empty() {
                     println!("No files selected.");

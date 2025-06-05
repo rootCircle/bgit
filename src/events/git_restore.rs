@@ -10,7 +10,7 @@ use std::path::Path;
 pub(crate) struct GitRestore {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
-    mode: Option<RestoreMode>, // Add this field
+    mode: Option<RestoreMode>,
 }
 
 #[derive(Debug, Clone)]
