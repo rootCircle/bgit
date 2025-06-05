@@ -1,8 +1,10 @@
 use dialoguer::{Confirm, Input};
 
+use crate::rules::Rule;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType},
     events::{git_clone::GitClone, AtomicEvent},
+    rules::a01_git_install::IsGitInstalledLocally,
     step::{PromptStep, Step},
 };
 
@@ -56,7 +58,7 @@ impl PromptStep for CloneGitRepo {
 
         // // Get a mutable reference to the GitClone event
         let mut git_clone = GitClone::new();
-
+        git_clone.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
         // Set the URL
         git_clone.set_url(&clone_link);
 

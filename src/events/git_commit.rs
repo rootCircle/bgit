@@ -8,7 +8,7 @@ use std::path::Path;
 
 pub(crate) struct GitCommit {
     name: String,
-    commit_message: String,
+    commit_message: Option<String>,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
 }
 
@@ -19,7 +19,7 @@ impl AtomicEvent for GitCommit {
     {
         GitCommit {
             name: "git_commit".to_owned(),
-            commit_message: String::new(),
+            commit_message: None,
             pre_check_rules: vec![],
         }
     }
@@ -41,55 +41,30 @@ impl AtomicEvent for GitCommit {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        // Check if there are any staged files
-        if !self.has_staged_files()? {
-            println!("No staged files found. Nothing to commit.");
-            return Ok(false);
-        }
+        let message = match &self.commit_message {
+            Some(msg) => msg.clone(),
+            None => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "No commit message provided. Use with_message() to set a commit message.",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                )));
+            }
+        };
 
-        // Perform the commit with the provided message
-        self.commit_changes(&self.commit_message)?;
+        self.commit_changes(&message)?;
 
-        println!(
-            "Successfully committed with message: \"{}\"",
-            self.commit_message
-        );
         Ok(true)
     }
 }
 
 impl GitCommit {
-    pub fn with_message(mut self, commit_message: String) -> Self {
-        self.commit_message = commit_message;
+    pub fn with_commit_message(mut self, commit_message: String) -> Self {
+        self.commit_message = Some(commit_message);
         self
-    }
-
-    /// Check if there are any staged files ready to commit
-    fn has_staged_files(&self) -> Result<bool, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {}", e),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        let index = repo.index().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository index: {}", e),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        // Check if index has any entries (staged files)
-        Ok(!index.is_empty())
     }
 
     /// Commit the staged changes with the provided message

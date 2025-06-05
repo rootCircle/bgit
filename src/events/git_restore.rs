@@ -4,7 +4,7 @@ use crate::{
     rules::Rule,
 };
 use dialoguer::{theme::ColorfulTheme, Select};
-use git2::{Repository, ResetType};
+use git2::{build::CheckoutBuilder, Repository, ResetType};
 use std::path::Path;
 
 pub(crate) struct GitRestore {
@@ -152,7 +152,7 @@ impl GitRestore {
         })?;
 
         // Set up checkout options to force overwrite working directory
-        let mut checkout_opts = git2::build::CheckoutBuilder::new();
+        let mut checkout_opts = CheckoutBuilder::new();
         checkout_opts.force(); // This will overwrite working directory files
         checkout_opts.remove_untracked(false); // Don't remove untracked files
         checkout_opts.update_index(false); // Don't update the index
@@ -170,7 +170,6 @@ impl GitRestore {
                 ))
             })?;
 
-        println!("All unstaged changes have been restored to match the staging area.");
         Ok(true)
     }
 
@@ -224,7 +223,6 @@ impl GitRestore {
                 ))
             })?;
 
-        println!("All staged files have been unstaged.");
         Ok(true)
     }
 }

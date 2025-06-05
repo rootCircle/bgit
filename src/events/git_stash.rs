@@ -9,13 +9,12 @@ use std::path::Path;
 #[derive(Debug, Clone)]
 pub(crate) enum StashOperation {
     Pop,
-    List,
 }
 
 pub(crate) struct GitStash {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
-    operation: StashOperation,
+    operation: Option<StashOperation>,
     stash_index: Option<usize>,
 }
 
@@ -24,7 +23,7 @@ impl GitStash {
         GitStash {
             name: "git_stash".to_owned(),
             pre_check_rules: vec![],
-            operation: StashOperation::Pop,
+            operation: Some(StashOperation::Pop),
             stash_index: index,
         }
     }
@@ -38,7 +37,7 @@ impl AtomicEvent for GitStash {
         GitStash {
             name: "git_stash".to_owned(),
             pre_check_rules: vec![],
-            operation: StashOperation::List,
+            operation: None,
             stash_index: None,
         }
     }
@@ -48,9 +47,9 @@ impl AtomicEvent for GitStash {
     }
 
     fn get_action_description(&self) -> &str {
-        match self.operation {
-            StashOperation::Pop => "Pop stash and apply changes",
-            StashOperation::List => "List all stashes",
+        match &self.operation {
+            Some(StashOperation::Pop) => "Pop stash and apply changes",
+            None => "No stash operation defined",
         }
     }
 
@@ -63,7 +62,6 @@ impl AtomicEvent for GitStash {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        // Open the repository at the current directory
         let mut repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
@@ -75,9 +73,16 @@ impl AtomicEvent for GitStash {
             ))
         })?;
 
-        match self.operation {
-            StashOperation::Pop => self.pop_stash_impl(&mut repo),
-            StashOperation::List => self.list_stashes_impl(&mut repo),
+        match &self.operation {
+            Some(StashOperation::Pop) => self.pop_stash_impl(&mut repo),
+            None => Err(Box::new(BGitError::new(
+                "BGitError",
+                "No stash operation defined",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                &self.name,
+                NO_RULE,
+            ))),
         }
     }
 }
@@ -102,33 +107,6 @@ impl GitStash {
                     NO_RULE,
                 ))
             })?;
-
-        println!("Popped stash at index {}", index);
-        Ok(true)
-    }
-
-    fn list_stashes_impl(&self, repo: &mut Repository) -> Result<bool, Box<BGitError>> {
-        let mut stash_count = 0;
-        let mut callback = |index: usize, message: &str, _oid: &git2::Oid| -> bool {
-            println!("stash@{{{}}}: {}", index, message);
-            stash_count += 1;
-            true
-        };
-
-        repo.stash_foreach(&mut callback).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to list stashes: {}", e),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        if stash_count == 0 {
-            println!("No stashes found.");
-        }
 
         Ok(true)
     }

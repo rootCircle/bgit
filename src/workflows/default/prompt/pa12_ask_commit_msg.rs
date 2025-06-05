@@ -56,8 +56,7 @@ impl PromptStep for AskHumanCommitMessage {
             )));
         }
 
-        // Execute git commit with the provided message
-        let mut git_commit = GitCommit::new().with_message(commit_message);
+        let mut git_commit = GitCommit::new().with_commit_message(commit_message);
         git_commit.add_pre_check_rule(Box::new(NoSecretsStaged::new()));
         git_commit.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new()));
 

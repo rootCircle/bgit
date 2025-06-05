@@ -15,7 +15,7 @@ pub(crate) enum LogOperation {
 pub(crate) struct GitLog {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
-    operation: LogOperation,
+    operation: Option<LogOperation>,
 }
 
 impl GitLog {
@@ -23,13 +23,9 @@ impl GitLog {
         GitLog {
             name: "git_log".to_owned(),
             pre_check_rules: vec![],
-            operation: LogOperation::CheckSoleContributor,
+            operation: Some(LogOperation::CheckSoleContributor),
         }
     }
-
-    // pub fn set_operation(&mut self, operation: LogOperation) {
-    //     self.operation = operation;
-    // }
 }
 
 impl AtomicEvent for GitLog {
@@ -40,7 +36,7 @@ impl AtomicEvent for GitLog {
         GitLog {
             name: "git_log".to_owned(),
             pre_check_rules: vec![],
-            operation: LogOperation::CheckSoleContributor,
+            operation: None,
         }
     }
 
@@ -49,8 +45,11 @@ impl AtomicEvent for GitLog {
     }
 
     fn get_action_description(&self) -> &str {
-        match self.operation {
-            LogOperation::CheckSoleContributor => "Check if current author is the sole contributor",
+        match &self.operation {
+            Some(LogOperation::CheckSoleContributor) => {
+                "Check if current author is the sole contributor"
+            }
+            None => "No operation specified",
         }
     }
 
@@ -63,7 +62,6 @@ impl AtomicEvent for GitLog {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        // Open the repository at the current directory
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
@@ -75,8 +73,16 @@ impl AtomicEvent for GitLog {
             ))
         })?;
 
-        match self.operation {
-            LogOperation::CheckSoleContributor => self.check_sole_contributor_impl(&repo),
+        match &self.operation {
+            Some(LogOperation::CheckSoleContributor) => self.check_sole_contributor_impl(&repo),
+            None => Err(Box::new(BGitError::new(
+                "BGitError",
+                "No operation specified for GitLog",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                &self.name,
+                NO_RULE,
+            ))),
         }
     }
 }

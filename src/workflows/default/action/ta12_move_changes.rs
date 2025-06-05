@@ -50,11 +50,11 @@ impl ActionStep for MoveChanges {
 
         // Set custom stash message if provided
         if let Some(ref message) = self.stash_message {
-            git_branch.set_stash_message(message.clone());
+            git_branch.with_stash_message(message.clone());
         }
 
         // Execute move changes operation
-        match git_branch.raw_execute() {
+        match git_branch.execute() {
             Ok(_) => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),
             Err(e) => Err(e),
         }
@@ -70,26 +70,4 @@ impl MoveChanges {
             stash_message: None,
         }
     }
-
-    // /// Set the target branch name
-    // pub fn set_target_branch_name(&mut self, target_branch_name: String) -> &mut Self {
-    //     self.target_branch_name = Some(target_branch_name);
-    //     self
-    // }
-
-    // /// Set a custom stash message
-    // pub fn set_stash_message(&mut self, message: String) -> &mut Self {
-    //     self.stash_message = Some(message);
-    //     self
-    // }
-
-    // /// Get the target branch name
-    // pub fn get_target_branch_name(&self) -> Option<&String> {
-    //     self.target_branch_name.as_ref()
-    // }
-
-    // /// Get the stash message
-    // pub fn get_stash_message(&self) -> Option<&String> {
-    //     self.stash_message.as_ref()
-    // }
 }

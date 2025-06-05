@@ -9,7 +9,7 @@ use std::path::Path;
 pub(crate) struct GitAdd {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
-    add_mode: AddMode,
+    add_mode: Option<AddMode>,
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ impl AtomicEvent for GitAdd {
         GitAdd {
             name: "git_add".to_owned(),
             pre_check_rules: vec![],
-            add_mode: AddMode::All,
+            add_mode: None,
         }
     }
 
@@ -48,11 +48,17 @@ impl AtomicEvent for GitAdd {
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         match &self.add_mode {
-            AddMode::All => self.add_all_files(),
-            AddMode::Selective(selected_files) => {
+            Some(AddMode::All) => self.add_all_files(),
+            Some(AddMode::Selective(selected_files)) => {
                 if selected_files.is_empty() {
-                    println!("No files selected.");
-                    return Ok(false);
+                    return Err(Box::new(BGitError::new(
+                        "BGitError",
+                        "No files selected for staging.",
+                        BGitErrorWorkflowType::AtomicEvent,
+                        NO_EVENT,
+                        &self.name,
+                        NO_RULE,
+                    )));
                 }
                 self.add_specific_files(selected_files.iter().map(|s| s.as_str()).collect())?;
                 println!(
@@ -61,13 +67,21 @@ impl AtomicEvent for GitAdd {
                 );
                 Ok(true)
             }
+            None => Err(Box::new(BGitError::new(
+                "BGitError",
+                "No add mode specified. Use 'with_add_mode' to set it.",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                &self.name,
+                NO_RULE,
+            ))),
         }
     }
 }
 
 impl GitAdd {
     pub fn with_add_mode(mut self, mode: AddMode) -> Self {
-        self.add_mode = mode;
+        self.add_mode = Some(mode);
         self
     }
 
@@ -123,7 +137,6 @@ impl GitAdd {
             ))
         })?;
 
-        println!("All unstaged files have been added to staging area.");
         Ok(true)
     }
 

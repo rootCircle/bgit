@@ -42,10 +42,17 @@ impl ActionStep for RestoreChanges {
         let git_restore = if let Some(mode) = &self.restore_mode {
             GitRestore::with_mode(mode.clone())
         } else {
-            GitRestore::new()
+            return Err(Box::new(BGitError::new(
+                "BGitError",
+                "Restore mode not specified for restore changes operation",
+                crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+                crate::bgit_error::NO_EVENT,
+                &self.name,
+                crate::bgit_error::NO_RULE,
+            )));
         };
 
-        git_restore.raw_execute()?;
+        git_restore.execute()?;
 
         match &self.restore_mode {
             Some(RestoreMode::RestoreAllUnstaged) => {

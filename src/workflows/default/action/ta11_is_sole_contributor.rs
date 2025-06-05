@@ -28,7 +28,7 @@ impl ActionStep for IsSoleContributor {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_log = GitLog::check_sole_contributor();
-        match git_log.raw_execute() {
+        match git_log.execute() {
             Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),
             Ok(false) => Ok(Step::Task(PromptStepTask(Box::new(AskBranchName::new())))),
             Err(e) => Err(e),
