@@ -152,7 +152,6 @@ impl GitAdd {
             ))
         })?;
 
-       
         for file_path in file_paths {
             index.add_path(Path::new(file_path)).map_err(|e| {
                 Box::new(BGitError::new(
@@ -166,7 +165,6 @@ impl GitAdd {
             })?;
         }
 
-        
         index.write().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
