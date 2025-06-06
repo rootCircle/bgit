@@ -70,7 +70,7 @@ impl AtomicEvent for GitClone {
         // Clone repository with authentication options
         let mut builder = git2::build::RepoBuilder::new();
         builder.fetch_options(fetch_options);
-        
+
         builder.clone(&self.url, Path::new(repo_name)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
