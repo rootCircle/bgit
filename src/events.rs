@@ -152,17 +152,7 @@ pub(crate) trait AtomicEvent {
             PENGUIN_EMOJI,
             self.get_name().cyan().bold()
         );
-        let raw_executor_status = self.raw_execute()?;
-        if !raw_executor_status {
-            return Err(Box::new(BGitError::new(
-                "Raw executor failed",
-                "Raw executor failed!",
-                BGitErrorWorkflowType::RawExecutor,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            )));
-        }
+        let _raw_executor_status = self.raw_execute()?;
 
         let post_event_hook_status = self.post_execute_hook()?;
         if !post_event_hook_status {
