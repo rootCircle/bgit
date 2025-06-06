@@ -152,7 +152,7 @@ pub(crate) trait AtomicEvent {
             PENGUIN_EMOJI,
             self.get_name().cyan().bold()
         );
-        let _raw_executor_status = self.raw_execute()?;
+        let raw_executor_status = self.raw_execute()?;
 
         let post_event_hook_status = self.post_execute_hook()?;
         if !post_event_hook_status {
@@ -165,6 +165,6 @@ pub(crate) trait AtomicEvent {
                 NO_RULE,
             )));
         }
-        Ok(true)
+        Ok(raw_executor_status)
     }
 }
