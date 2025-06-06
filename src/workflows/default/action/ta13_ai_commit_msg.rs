@@ -16,6 +16,7 @@ use google_generative_ai_rs::v1::{
         Content, Model, Part, Role,
     },
 };
+use log::debug;
 use std::path::Path;
 
 use crate::events::AtomicEvent;
@@ -58,6 +59,8 @@ impl ActionStep for AICommit {
 
         // Get git diff
         let diff_content = self.get_git_diff()?;
+
+        debug!("{diff_content}");
 
         if diff_content.trim().is_empty() {
             return Err(Box::new(BGitError::new(

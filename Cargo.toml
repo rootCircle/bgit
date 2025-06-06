@@ -20,6 +20,8 @@ indicatif = "0.17.11"
 google-generative-ai-rs = { version = "0.3.4", features = ["beta"] }
 tokio = { version = "1.45.1", features = ["full"] }
 regex = "1.11.1"
+log = "0.4.27"
+env_logger = "0.11.8"
 
 [profile.dev]
 opt-level = 0

@@ -19,6 +19,10 @@ pub struct Cli {
     /// Generate Shell Completions
     #[arg(long = "completions", value_enum)]
     completions: Option<Shell>,
+
+    /// Increase verbosity (-v, -vv, -vvv), 0 = WARN, 1 = INFO, 2 = DEBUG, 3 = TRACE
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub(crate) verbose: u8,
 }
 
 #[derive(Debug, Subcommand)]
