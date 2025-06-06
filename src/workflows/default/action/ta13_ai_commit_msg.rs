@@ -104,40 +104,53 @@ impl AICommit {
         let mut diff_opts = DiffOptions::new();
         diff_opts.include_untracked(false);
 
-        // Get the HEAD tree
-        let head = repo.head().map_err(|e| {
+        // Get diff between HEAD and index (staged changes)
+        let head_tree = repo.head().map_err(|e| {
             Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD: {}", e),
-                crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                crate::bgit_error::NO_EVENT,
-                &self.name,
-                crate::bgit_error::NO_RULE,
+            "BGitError",
+            &format!("Failed to get HEAD: {}", e),
+            crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+            crate::bgit_error::NO_EVENT,
+            &self.name,
+            crate::bgit_error::NO_RULE,
             ))
-        })?;
-        let head_tree = head.peel_to_tree().map_err(|e| {
+        })?.peel_to_tree().map_err(|e| {
             Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD tree: {}", e),
-                crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                crate::bgit_error::NO_EVENT,
-                &self.name,
-                crate::bgit_error::NO_RULE,
+            "BGitError",
+            &format!("Failed to peel HEAD to tree: {}", e),
+            crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+            crate::bgit_error::NO_EVENT,
+            &self.name,
+            crate::bgit_error::NO_RULE,
             ))
         })?;
 
-        // Get diff between HEAD and index (staging area)
+        let index = repo.index().map_err(|e| {
+            Box::new(BGitError::new(
+            "BGitError",
+            &format!("Failed to get repository index: {}", e),
+            crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+            crate::bgit_error::NO_EVENT,
+            &self.name,
+            crate::bgit_error::NO_RULE,
+            ))
+        })?;
+
         let diff = repo
-            .diff_tree_to_index(Some(&head_tree), None, Some(&mut diff_opts))
+            .diff_tree_to_index(
+            Some(&head_tree),
+            Some(&index),
+            Some(&mut diff_opts)
+            )
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to create diff: {}", e),
-                    crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                    crate::bgit_error::NO_EVENT,
-                    &self.name,
-                    crate::bgit_error::NO_RULE,
-                ))
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to create staged diff: {}", e),
+                crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+                crate::bgit_error::NO_EVENT,
+                &self.name,
+                crate::bgit_error::NO_RULE,
+            ))
             })?;
 
         let mut diff_content = String::new();
