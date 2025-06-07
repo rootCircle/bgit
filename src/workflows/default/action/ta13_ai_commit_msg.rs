@@ -76,7 +76,7 @@ impl ActionStep for AICommit {
         // Generate commit message using AI
         let commit_message = self.generate_commit_message(&api_key, &diff_content)?;
 
-        println!("Generated commit message: {}", commit_message);
+        debug!("Generated commit message: {}", commit_message);
 
         // Execute GitCommit with the generated message
         let mut git_commit = GitCommit::new().with_commit_message(commit_message);

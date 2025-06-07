@@ -54,6 +54,8 @@ Follow the on-screen prompts to add, commit, and push your changes. bgit will ha
 
 If you're interested in finding how bgit works, take a look at [ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
+Want to try it out? Check [bgit_clone_sample](https://github.com/rootCircle/bgit_clone_sample) repository.
+
 ## Contributing
 
 Contributions to bgit are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [bgit GitHub repository](https://github.com/rootCircle/bgit).
