@@ -1,12 +1,12 @@
 use crate::config::{StepFlags, WorkflowRules};
+use crate::events::AtomicEvent;
+use crate::workflows::default::action::ta07_has_uncommitted::HasUncommitted;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    events::git_restore::RestoreMode,
+    events::git_restore::{GitRestore, RestoreMode},
     step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
-    workflows::default::action::ta06_restore_changes::RestoreChanges,
 };
-use dialoguer::{theme::ColorfulTheme, Select};
-
+use dialoguer::{theme::ColorfulTheme, MultiSelect};
 pub(crate) struct AskToRestore {
     name: String,
 }
@@ -30,13 +30,11 @@ impl PromptStep for AskToRestore {
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("What do you want to restore?")
-            .default(0)
+        let selections = MultiSelect::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select restore options (Space to select, Enter to confirm, or press Enter with nothing selected to cancel)")            
             .items(&[
                 "Restore unstaged changes (git restore .)",
                 "Unstage all files (git restore --staged .)",
-                "Cancel",
             ])
             .interact()
             .map_err(|e| {
@@ -50,22 +48,32 @@ impl PromptStep for AskToRestore {
                 ))
             })?;
 
-        match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(
-                RestoreChanges::new().with_mode(RestoreMode::RestoreAllUnstaged),
-            )))),
-            1 => Ok(Step::Task(ActionStepTask(Box::new(
-                RestoreChanges::new().with_mode(RestoreMode::UnstageAll),
-            )))),
-            2 => Ok(Step::Stop),
-            _ => Err(Box::new(BGitError::new(
-                "Invalid selection",
-                "Unexpected selection index in Select prompt.",
-                BGitErrorWorkflowType::PromptStep,
-                &self.name,
-                NO_EVENT,
-                NO_RULE,
-            ))),
+        if selections.is_empty() {
+            return Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))));
         }
+
+        for &selection in &selections {
+            match selection {
+                0 => {
+                    let git_restore = GitRestore::new().with_mode(RestoreMode::RestoreAllUnstaged);
+                    git_restore.execute()?;
+                }
+                1 => {
+                    let git_restore = GitRestore::new().with_mode(RestoreMode::UnstageAll);
+                    git_restore.execute()?;
+                }
+                _ => {
+                    return Err(Box::new(BGitError::new(
+                        "Invalid selection",
+                        "Unexpected selection index in MultiSelect prompt.",
+                        BGitErrorWorkflowType::PromptStep,
+                        &self.name,
+                        NO_EVENT,
+                        NO_RULE,
+                    )))
+                }
+            }
+        }
+        Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))))
     }
 }
