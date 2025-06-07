@@ -11,6 +11,7 @@ mod a08_gitlab_credentials_ssh;
 mod a09_commit_gpg_sign;
 mod a11_git_remote_http_ssh;
 pub(crate) mod a12_no_secrets_staged;
+pub(crate) mod a12b_no_secret_files_staged;
 mod a13_git_lfs;
 pub(crate) mod a14_big_repo_size;
 mod a15_file_not_gitignored;

@@ -1,7 +1,6 @@
-
-use crate::bgit_error::{BGitError};
+use crate::bgit_error::BGitError;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
-use git2::{Config};
+use git2::Config;
 
 pub(crate) struct GitNameEmailSetup {
     name: String,

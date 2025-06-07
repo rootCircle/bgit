@@ -1,5 +1,7 @@
 use crate::events::git_add::{AddMode, GitAdd};
 use crate::events::{git_status, AtomicEvent};
+use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
+use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta07_has_uncommitted::HasUncommitted;
@@ -60,7 +62,8 @@ impl PromptStep for AskAddMode {
         };
 
         // Create GitAdd instance with the selected mode and execute
-        let git_add = GitAdd::new().with_add_mode(add_mode);
+        let mut git_add = GitAdd::new().with_add_mode(add_mode);
+        git_add.add_pre_check_rule(Box::new(NoSecretFilesStaged::new()));
         git_add.execute()?;
 
         Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))))
