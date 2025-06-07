@@ -1,7 +1,7 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
 
 pub(crate) mod a01_git_install;
-mod a02_git_name_email_setup;
+pub(crate) mod a02_git_name_email_setup;
 mod a03_github_username;
 mod a04_gitlab_username;
 mod a05_github_credentials_http;

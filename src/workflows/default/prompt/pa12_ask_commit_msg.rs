@@ -1,5 +1,6 @@
 use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
+use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
 use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
 use crate::rules::Rule;
@@ -59,6 +60,7 @@ impl PromptStep for AskHumanCommitMessage {
         let mut git_commit = GitCommit::new().with_commit_message(commit_message);
         git_commit.add_pre_check_rule(Box::new(NoSecretsStaged::new()));
         git_commit.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new()));
+        git_commit.add_pre_check_rule(Box::new(GitNameEmailSetup::new()));
 
         git_commit.execute()?;
 
