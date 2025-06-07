@@ -11,6 +11,7 @@ pub(crate) enum ConfigOperation {
     Get,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum ConfigScope {
     Local,

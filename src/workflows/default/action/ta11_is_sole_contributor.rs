@@ -42,20 +42,21 @@ impl ActionStep for IsSoleContributor {
                     Some(author_emails)
                 }
             });
-        let skip_author_ownership_check = if let Some(author_emails) = override_check_for_authors_list {
-            let git_config_event = git_config::GitConfig::new()
-                .with_operation(git_config::ConfigOperation::Get)
-                .with_key("user.email".to_owned());
+        let skip_author_ownership_check =
+            if let Some(author_emails) = override_check_for_authors_list {
+                let git_config_event = git_config::GitConfig::new()
+                    .with_operation(git_config::ConfigOperation::Get)
+                    .with_key("user.email".to_owned());
 
-            git_config_event.execute()?;
-            let current_author_email = git_config_event.get_value()?;
+                git_config_event.execute()?;
+                let current_author_email = git_config_event.get_value()?;
 
-            author_emails.iter().any(|author| current_author_email == *author)
-        } else {
-            false
-        };
+                author_emails.contains(&current_author_email)
+            } else {
+                false
+            };
 
-        let git_log =  GitLog::check_sole_contributor();
+        let git_log = GitLog::check_sole_contributor();
         let is_sole_contributor = skip_author_ownership_check || git_log.execute()?;
         match is_sole_contributor {
             true => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),
