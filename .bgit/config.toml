@@ -1,0 +1,7 @@
+[rules.default]
+a01_git_install = "Warning"
+a02_git_name_email_setup = "Error"
+a12_no_secrets_staged = "Skip"
+
+[workflow.default.is_sole_contributor]
+overrideCheckForAuthors = ["Lab Rat <dev.frolics@gmail.com>"]

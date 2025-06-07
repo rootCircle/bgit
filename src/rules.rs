@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
 
 pub(crate) mod a01_git_install;
@@ -18,7 +20,7 @@ mod a15_file_not_gitignored;
 pub(crate) mod a16_no_large_file;
 pub(crate) mod a17_conventional_commit_message;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub(crate) enum RuleLevel {
     /// Skip the rule check
     Skip,

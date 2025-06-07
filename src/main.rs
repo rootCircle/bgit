@@ -3,9 +3,11 @@ use crate::cmd::default::default_cmd_workflow;
 use crate::cmd::init::init;
 use crate::cmd::log::log;
 use crate::cmd::{Cli, Commands};
+use crate::config::BGitConfig;
 
 mod bgit_error;
 mod cmd;
+mod config;
 mod events;
 mod hook_executor;
 mod rules;
@@ -29,11 +31,17 @@ fn main() {
         .format_timestamp_secs()
         .init();
 
+    
+        let bgit_config = BGitConfig::load().unwrap_or_else(|err| {
+            err.print_error();
+            std::process::exit(1);
+        });
+
         match cli_instance.command {
-            Some(Commands::Log) => log(),
-            Some(Commands::Init) => init(),
-            Some(Commands::Check) => check(),
-            None => default_cmd_workflow(),
+            Some(Commands::Log) => log(bgit_config),
+            Some(Commands::Init) => init(bgit_config),
+            Some(Commands::Check) => check(bgit_config),
+            None => default_cmd_workflow(bgit_config),
         }
     }
 }

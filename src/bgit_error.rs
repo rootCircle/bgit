@@ -18,6 +18,7 @@ pub(crate) enum BGitErrorWorkflowType {
     AtomicEvent,
     RawExecutor,
     HookExecutor,
+    Config,
     WorkflowQueue,
     ActionStep,
     PromptStep,
