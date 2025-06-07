@@ -26,10 +26,10 @@ impl PromptStep for AskIfSameFeat {
     }
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
-        let options = vec!["yes", "no"];
+        let options = vec!["Yes", "No"];
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Are you working on the same feature as older?")
-            .default(1) // Default to "no" (index 1)
+            .default(1) // Default to "No" (index 1)
             .items(&options)
             .interact()
             .map_err(|e| {
