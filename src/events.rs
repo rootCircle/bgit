@@ -14,6 +14,7 @@ mod git_checkout;
 mod git_clean;
 pub mod git_clone;
 pub mod git_commit;
+pub mod git_config;
 mod git_filter_repo;
 pub mod git_init;
 pub mod git_log;

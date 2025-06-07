@@ -1,6 +1,7 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_log::GitLog;
-use crate::events::AtomicEvent;
+use crate::events::{git_config, AtomicEvent};
+use crate::flags::config_flag;
 use crate::step::PromptStep;
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa08_ask_commit::AskCommit;
@@ -29,14 +30,36 @@ impl ActionStep for IsSoleContributor {
 
     fn execute(
         &self,
-        _step_config_flags: Option<&StepFlags>,
+        step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
-        let git_log = GitLog::check_sole_contributor();
-        match git_log.execute() {
-            Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),
-            Ok(false) => Ok(Step::Task(PromptStepTask(Box::new(AskBranchName::new())))),
-            Err(e) => Err(e),
+        let override_check_for_authors_list = step_config_flags
+            .and_then(|flags| flags.get_flag::<Vec<String>>(config_flag::workflows::default::is_sole_contributor::OVERRIDE_CHECK_FOR_AUTHORS))
+            .and_then(|author_emails| {
+                if author_emails.is_empty() {
+                    None
+                } else {
+                    Some(author_emails)
+                }
+            });
+        let skip_author_ownership_check = if let Some(author_emails) = override_check_for_authors_list {
+            let git_config_event = git_config::GitConfig::new()
+                .with_operation(git_config::ConfigOperation::Get)
+                .with_key("user.email".to_owned());
+
+            git_config_event.execute()?;
+            let current_author_email = git_config_event.get_value()?;
+
+            author_emails.iter().any(|author| current_author_email == *author)
+        } else {
+            false
+        };
+
+        let git_log =  GitLog::check_sole_contributor();
+        let is_sole_contributor = skip_author_ownership_check || git_log.execute()?;
+        match is_sole_contributor {
+            true => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),
+            false => Ok(Step::Task(PromptStepTask(Box::new(AskBranchName::new())))),
         }
     }
 }
