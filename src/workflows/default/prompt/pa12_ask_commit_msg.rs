@@ -1,5 +1,7 @@
 use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
+use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
+use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
@@ -53,7 +55,10 @@ impl PromptStep for AskHumanCommitMessage {
             )));
         }
 
-        let git_commit = GitCommit::new().with_commit_message(commit_message);
+        let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
+        git_commit.add_pre_check_rule(Box::new(
+            ConventionalCommitMessage::new().with_message(commit_message),
+        ));
         git_commit.execute()?;
 
         // Return to next step (IsPushedPulled)

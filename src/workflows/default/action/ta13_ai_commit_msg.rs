@@ -1,4 +1,6 @@
 use crate::events::git_commit::GitCommit;
+use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
+use crate::rules::Rule;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
 use crate::{
@@ -76,7 +78,10 @@ impl ActionStep for AICommit {
         debug!("Generated commit message: {}", commit_message);
 
         // Execute GitCommit with the generated message
-        let git_commit = GitCommit::new().with_commit_message(commit_message);
+        let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
+        git_commit.add_pre_check_rule(Box::new(
+            ConventionalCommitMessage::new().with_message(commit_message.clone()),
+        ));
         git_commit.execute()?;
 
         // Return to ask commit step with generated message

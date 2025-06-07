@@ -16,6 +16,7 @@ mod a13_git_lfs;
 pub(crate) mod a14_big_repo_size;
 mod a15_file_not_gitignored;
 pub(crate) mod a16_no_large_file;
+pub(crate) mod a17_conventional_commit_message;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum RuleLevel {
