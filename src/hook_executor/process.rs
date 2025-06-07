@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, info};
 
 use crate::bgit_error::BGitError;
 use std::io::{BufRead, BufReader};
@@ -23,7 +23,7 @@ pub fn handle_process_output(child: &mut process::Child) -> Result<(), Box<BGitE
     let stdout_thread = thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines().map_while(Result::ok) {
-            info!("[hook_executor] {}", line);
+            debug!("[hook_executor][stdout] {}", line);
         }
     });
 
@@ -31,7 +31,7 @@ pub fn handle_process_output(child: &mut process::Child) -> Result<(), Box<BGitE
     let stderr_thread = thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines().map_while(Result::ok) {
-            error!("[hook_executor] {}", line);
+            info!("[hook_executor][stderr] {}", line);
         }
     });
 
