@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_add::{AddMode, GitAdd};
 use crate::events::{git_status, AtomicEvent};
 use crate::step::ActionStep;
@@ -27,7 +28,11 @@ impl PromptStep for AskAddMode {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let options = vec!["Add all unstaged files", "Select specific files to add"];
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Choose add mode:")

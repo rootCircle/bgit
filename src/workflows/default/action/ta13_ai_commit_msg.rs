@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
 use crate::rules::Rule;
@@ -40,7 +41,11 @@ impl ActionStep for AICommit {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         // Get API key from environment or provided value
         let api_key = match &self.api_key {
             Some(key) => key.clone(),

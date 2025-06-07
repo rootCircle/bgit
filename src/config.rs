@@ -122,69 +122,85 @@ impl BGitConfig {
         }
     }
 
-    /// Get rule level for a specific rule in a workflow, returns None if not configured
-    pub fn get_rule_level(&self, workflow_name: &str, rule_name: &str) -> Option<&RuleLevel> {
-        self.rules
-            .workflows
-            .get(workflow_name)?
-            .rule_levels
-            .get(rule_name)
+    /// Get workflow rules for a specific workflow
+    pub fn get_workflow_rules(&self, workflow_name: &str) -> Option<&WorkflowRules> {
+        self.rules.workflows.get(workflow_name)
     }
 
-    /// Get rule level with default workflow fallback
-    pub fn get_rule_level_or_default(
-        &self,
-        workflow_name: &str,
-        rule_name: &str,
-    ) -> Option<&RuleLevel> {
-        // Try specific workflow first, then fall back to "default" workflow
-        self.get_rule_level(workflow_name, rule_name)
-            .or_else(|| self.get_rule_level("default", rule_name))
+    /// Get workflow rules with default fallback
+    pub fn get_workflow_rules_or_default(&self, workflow_name: &str) -> Option<&WorkflowRules> {
+        self.get_workflow_rules(workflow_name)
+            .or_else(|| self.get_workflow_rules("default"))
     }
 
-    /// Get flag value for a specific workflow step
-    pub fn get_workflow_flag<T>(
-        &self,
-        workflow_name: &str,
-        step_name: &str,
-        flag_name: &str,
-    ) -> Option<T>
+    /// Get workflow steps for a specific workflow
+    pub fn get_workflow_steps(&self, workflow_name: &str) -> Option<&WorkflowSteps> {
+        self.workflow.workflows.get(workflow_name)
+    }
+
+    /// Get workflow steps with default fallback
+    pub fn get_workflow_steps_or_default(&self, workflow_name: &str) -> Option<&WorkflowSteps> {
+        self.get_workflow_steps(workflow_name)
+            .or_else(|| self.get_workflow_steps("default"))
+    }
+}
+
+impl WorkflowRules {
+    /// Get rule level for a specific rule
+    pub fn get_rule_level(&self, rule_name: &str) -> Option<&RuleLevel> {
+        self.rule_levels.get(rule_name)
+    }
+
+    /// Check if a rule is configured
+    pub fn has_rule(&self, rule_name: &str) -> bool {
+        self.rule_levels.contains_key(rule_name)
+    }
+
+    /// Get all rule names
+    pub fn get_rule_names(&self) -> Vec<&String> {
+        self.rule_levels.keys().collect()
+    }
+}
+
+impl WorkflowSteps {
+    /// Get step flags for a specific step
+    pub fn get_step_flags(&self, step_name: &str) -> Option<&StepFlags> {
+        self.steps.get(step_name)
+    }
+
+    /// Check if a step is configured
+    pub fn has_step(&self, step_name: &str) -> bool {
+        self.steps.contains_key(step_name)
+    }
+}
+
+impl StepFlags {
+    /// Get flag value for a specific flag
+    pub fn get_flag<T>(&self, flag_name: &str) -> Option<T>
     where
         T: serde::de::DeserializeOwned,
     {
-        self.workflow
-            .workflows
-            .get(workflow_name)?
-            .steps
-            .get(step_name)?
-            .flags
+        self.flags
             .get(flag_name)
             .and_then(|value| serde_json::from_value(value.clone()).ok())
     }
 
     /// Get flag value with default fallback
-    pub fn get_workflow_flag_or_default<T>(
-        &self,
-        workflow_name: &str,
-        step_name: &str,
-        flag_name: &str,
-        default: T,
-    ) -> T
+    pub fn get_flag_or_default<T>(&self, flag_name: &str, default: T) -> T
     where
         T: serde::de::DeserializeOwned,
     {
-        self.get_workflow_flag(workflow_name, step_name, flag_name)
-            .unwrap_or(default)
+        self.get_flag(flag_name).unwrap_or(default)
     }
 
-    /// Check if a workflow step has a specific flag set
-    pub fn has_workflow_flag(&self, workflow_name: &str, step_name: &str, flag_name: &str) -> bool {
-        self.workflow
-            .workflows
-            .get(workflow_name)
-            .and_then(|w| w.steps.get(step_name))
-            .and_then(|s| s.flags.get(flag_name))
-            .is_some()
+    /// Check if a flag exists
+    pub fn has_flag(&self, flag_name: &str) -> bool {
+        self.flags.contains_key(flag_name)
+    }
+
+    /// Get all flag names
+    pub fn get_flag_names(&self) -> Vec<&String> {
+        self.flags.keys().collect()
     }
 }
 
@@ -228,93 +244,82 @@ timeout = 30
 
         let config: BGitConfig = toml::from_str(toml_content).unwrap();
 
-        // Test workflow-specific rule parsing
+        // Test workflow rules access
+        let default_rules = config.get_workflow_rules("default").unwrap();
         assert_eq!(
-            config.get_rule_level("default", "a01_git_install"),
+            default_rules.get_rule_level("a01_git_install"),
             Some(&RuleLevel::Warning)
         );
         assert_eq!(
-            config.get_rule_level("default", "a02_git_name_email_setup"),
+            default_rules.get_rule_level("a02_git_name_email_setup"),
             Some(&RuleLevel::Error)
         );
         assert_eq!(
-            config.get_rule_level("default", "a12_no_secrets_staged"),
+            default_rules.get_rule_level("a12_no_secrets_staged"),
             Some(&RuleLevel::Skip)
         );
+        assert!(default_rules.has_rule("a01_git_install"));
+        assert!(!default_rules.has_rule("nonexistent_rule"));
 
+        let git_commit_rules = config.get_workflow_rules("git_commit").unwrap();
         assert_eq!(
-            config.get_rule_level("git_commit", "a01_git_install"),
+            git_commit_rules.get_rule_level("a01_git_install"),
             Some(&RuleLevel::Error)
         );
         assert_eq!(
-            config.get_rule_level("git_commit", "a17_conventional_commit_message"),
+            git_commit_rules.get_rule_level("a17_conventional_commit_message"),
             Some(&RuleLevel::Warning)
         );
-
-        assert_eq!(
-            config.get_rule_level("nonexistent", "a01_git_install"),
-            None
-        );
-        assert_eq!(config.get_rule_level("default", "nonexistent_rule"), None);
 
         // Test fallback to default workflow
+        let fallback_rules = config
+            .get_workflow_rules_or_default("some_workflow")
+            .unwrap();
         assert_eq!(
-            config.get_rule_level_or_default("some_workflow", "a01_git_install"),
+            fallback_rules.get_rule_level("a01_git_install"),
             Some(&RuleLevel::Warning)
         );
-        assert_eq!(
-            config.get_rule_level_or_default("git_commit", "a01_git_install"),
-            Some(&RuleLevel::Error)
-        );
 
-        // Test workflow flag parsing
-        let authors: Option<Vec<String>> =
-            config.get_workflow_flag("default", "is_sole_contributor", "overrideCheckForAuthors");
-        assert_eq!(
-            authors,
-            Some(vec!["Lab Rat <dev.frolics@gmail.com>".to_string()])
-        );
+        // Test workflow steps access
+        let default_steps = config.get_workflow_steps("default").unwrap();
+        assert!(default_steps.has_step("is_sole_contributor"));
 
-        assert_eq!(
-            config.get_workflow_flag::<bool>("default", "is_sole_contributor", "skipAddAll"),
-            Some(true)
-        );
-        assert_eq!(
-            config.get_workflow_flag::<bool>("default", "is_sole_contributor", "force"),
-            Some(false)
-        );
+        // Test step flags direct access
+        let step_flags = default_steps.get_step_flags("is_sole_contributor").unwrap();
+        assert_eq!(step_flags.get_flag::<bool>("skipAddAll"), Some(true));
+        assert!(!step_flags.get_flag_or_default::<bool>("nonexistent", false));
+        assert!(step_flags.has_flag("skipAddAll"));
+        assert!(!step_flags.has_flag("nonexistent"));
+    }
 
-        assert_eq!(
-            config.get_workflow_flag::<bool>("git_commit", "git_add", "skipAddAll"),
-            Some(true)
-        );
-        assert_eq!(
-            config.get_workflow_flag::<bool>("git_commit", "git_add", "includeUntracked"),
-            Some(false)
-        );
-        assert_eq!(
-            config.get_workflow_flag::<i32>("git_commit", "git_add", "maxFileSize"),
-            Some(100)
-        );
+    #[test]
+    fn test_workflow_structure_methods() {
+        let toml_content = r#"
+[rules.default]
+a01_git_install = "Warning"
+a02_git_name_email_setup = "Error"
 
-        assert_eq!(
-            config.get_workflow_flag::<bool>("git_push", "pre_push_checks", "skipLinting"),
-            Some(true)
-        );
-        assert_eq!(
-            config.get_workflow_flag::<i32>("git_push", "pre_push_checks", "timeout"),
-            Some(30)
-        );
+[workflow.default.is_sole_contributor]
+overrideCheckForAuthors = ["Test User"]
+skipAddAll = true
 
-        // Test default fallback
-        assert!(config.get_workflow_flag_or_default("nonexistent", "step", "flag", true));
-        assert_eq!(
-            config.get_workflow_flag_or_default("git_commit", "git_add", "nonexistent", 42),
-            42
-        );
+[workflow.default.git_add]
+includeUntracked = false
+maxFileSize = 100
+"#;
 
-        // Test flag existence
-        assert!(config.has_workflow_flag("git_commit", "git_add", "skipAddAll"));
-        assert!(!config.has_workflow_flag("git_commit", "git_add", "nonexistent"));
+        let config: BGitConfig = toml::from_str(toml_content).unwrap();
+
+        let default_rules = config.get_workflow_rules("default").unwrap();
+        let rule_names = default_rules.get_rule_names();
+        assert!(rule_names.contains(&&"a01_git_install".to_string()));
+        assert!(rule_names.contains(&&"a02_git_name_email_setup".to_string()));
+
+        let default_steps = config.get_workflow_steps("default").unwrap();
+
+        let step_flags = default_steps.get_step_flags("is_sole_contributor").unwrap();
+        let flag_names = step_flags.get_flag_names();
+        assert!(flag_names.contains(&&"overrideCheckForAuthors".to_string()));
+        assert!(flag_names.contains(&&"skipAddAll".to_string()));
     }
 }

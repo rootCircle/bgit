@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa05x_ask_add_mode::AskAddMode;
 use crate::{
@@ -25,7 +26,11 @@ impl PromptStep for AskToAdd {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to add the unstaged files?")
             .default(0)

@@ -1,4 +1,7 @@
-use crate::bgit_error::BGitError;
+use crate::{
+    bgit_error::BGitError,
+    config::{StepFlags, WorkflowRules},
+};
 
 #[derive(PartialEq)]
 pub(crate) enum Step {
@@ -29,7 +32,11 @@ pub(crate) trait ActionStep {
     where
         Self: Sized;
     fn get_name(&self) -> &str;
-    fn execute(&self) -> Result<Step, Box<BGitError>>;
+    fn execute(
+        &self,
+        step_config_flags: Option<&StepFlags>,
+        workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>>;
 }
 
 pub(crate) trait PromptStep {
@@ -37,5 +44,9 @@ pub(crate) trait PromptStep {
     where
         Self: Sized;
     fn get_name(&self) -> &str;
-    fn execute(&self) -> Result<Step, Box<BGitError>>;
+    fn execute(
+        &self,
+        step_config_flags: Option<&StepFlags>,
+        workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>>;
 }

@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::step::PromptStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
@@ -26,7 +27,11 @@ impl ActionStep for HasStash {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let cwd = env::current_dir().expect("Failed to get current directory");
         if Repository::discover(&cwd).is_ok() {
             let mut repo = Repository::discover(cwd).unwrap();

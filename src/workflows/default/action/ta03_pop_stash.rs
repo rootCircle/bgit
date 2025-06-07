@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::step::PromptStep;
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa05_ask_to_add::AskToAdd;
@@ -26,7 +27,11 @@ impl ActionStep for PopStash {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let git_stash = GitStash::pop_stash(self.stash_index);
 
         git_stash.execute()?;

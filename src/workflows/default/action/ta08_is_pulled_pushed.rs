@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::workflows::default::prompt::pa07_ask_pull_push::AskPushPull;
 use crate::{
     bgit_error::BGitError,
@@ -22,7 +23,11 @@ impl ActionStep for IsPushedPulled {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         // Check for unpushed commits (ahead of remote)
         // let _has_unpushed = crate::events::git_status::has_unpushed_commits()?;
 

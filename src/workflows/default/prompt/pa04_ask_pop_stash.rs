@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::workflows::default::action::ta03_pop_stash::PopStash;
 use crate::workflows::default::action::ta04_has_unstaged::HasUnstaged;
 use crate::{
@@ -24,7 +25,11 @@ impl PromptStep for AskPopStash {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to pop the stash?")
             .default(0)

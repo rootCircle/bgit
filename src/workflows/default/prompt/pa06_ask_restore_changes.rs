@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     events::git_restore::RestoreMode,
@@ -24,7 +25,11 @@ impl PromptStep for AskToRestore {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("What do you want to restore?")
             .default(0)

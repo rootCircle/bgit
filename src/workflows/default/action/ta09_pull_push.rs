@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_pull::GitPull;
 use crate::events::git_push::GitPush;
 use crate::events::AtomicEvent;
@@ -25,7 +26,11 @@ impl ActionStep for PullAndPush {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         // Create GitPull instance with rebase flag enabled
         let git_pull = GitPull::new().with_rebase(true);
 

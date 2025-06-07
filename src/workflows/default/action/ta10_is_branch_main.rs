@@ -1,4 +1,5 @@
 use super::ta11_is_sole_contributor::IsSoleContributor;
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_branch::GitBranch;
 use crate::events::AtomicEvent;
 use crate::step::PromptStep;
@@ -28,7 +29,11 @@ impl ActionStep for IsBranchMain {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let git_branch = GitBranch::check_current_branch();
         match git_branch.execute() {
             Ok(true) => Ok(Step::Task(ActionStepTask(Box::new(

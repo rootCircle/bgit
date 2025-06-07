@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_log::GitLog;
 use crate::events::AtomicEvent;
 use crate::step::PromptStep;
@@ -26,7 +27,11 @@ impl ActionStep for IsSoleContributor {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let git_log = GitLog::check_sole_contributor();
         match git_log.execute() {
             Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),

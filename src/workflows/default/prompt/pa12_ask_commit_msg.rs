@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
@@ -28,7 +29,11 @@ impl PromptStep for AskHumanCommitMessage {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let commit_message: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Enter your commit message")
             .interact_text()

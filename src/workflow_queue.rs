@@ -1,4 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE, NO_STEP};
+use crate::config::{WorkflowRules, WorkflowSteps};
 use crate::step::Task::{ActionStepTask, PromptStepTask};
 use crate::step::{Step, Task};
 use colored::Colorize;
@@ -28,7 +29,12 @@ impl WorkflowQueue {
         WorkflowQueue { init_step, pb }
     }
 
-    fn run_step_and_traverse(&self, task: &Task) -> Result<Step, Box<BGitError>> {
+    fn run_step_and_traverse(
+        &self,
+        workflow_config_flags: Option<&WorkflowSteps>,
+        workflow_rules_config: Option<&WorkflowRules>,
+        task: &Task,
+    ) -> Result<Step, Box<BGitError>> {
         match task {
             ActionStepTask(action_step_task) => {
                 eprintln!(
@@ -40,7 +46,12 @@ impl WorkflowQueue {
                     "Step '{}' in progress...",
                     action_step_task.get_name().bold()
                 ));
-                let action_step_result = action_step_task.execute()?;
+
+                let action_step_config_flags = workflow_config_flags
+                    .and_then(|flags| flags.get_step_flags(action_step_task.get_name()));
+
+                let action_step_result =
+                    action_step_task.execute(action_step_config_flags, workflow_rules_config)?;
 
                 self.pb.inc(1);
                 self.pb.tick();
@@ -59,7 +70,12 @@ impl WorkflowQueue {
                     "Step '{}' in progress...",
                     prompt_step_task.get_name().bold()
                 ));
-                let prompt_step_result = prompt_step_task.execute()?;
+
+                let prompt_step_config_flags = workflow_config_flags
+                    .and_then(|flags| flags.get_step_flags(prompt_step_task.get_name()));
+
+                let prompt_step_result =
+                    prompt_step_task.execute(prompt_step_config_flags, workflow_rules_config)?;
                 self.pb.enable_steady_tick(Duration::from_millis(200));
 
                 self.pb.inc(1);
@@ -70,12 +86,17 @@ impl WorkflowQueue {
         }
     }
 
-    pub(crate) fn execute(&self) -> Result<bool, Box<BGitError>> {
+    pub(crate) fn execute(
+        &self,
+        workflow_config_flags: Option<&WorkflowSteps>,
+        workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<bool, Box<BGitError>> {
         match &self.init_step {
             Step::Start(task) => {
                 let started = Instant::now();
 
-                let mut next_step: Step = self.run_step_and_traverse(task)?;
+                let mut next_step: Step =
+                    self.run_step_and_traverse(workflow_config_flags, workflow_rules_config, task)?;
 
                 while next_step != Step::Stop {
                     if let Step::Start(_) = next_step {
@@ -91,7 +112,11 @@ impl WorkflowQueue {
 
                     match next_step {
                         Step::Task(task) => {
-                            next_step = self.run_step_and_traverse(&task)?;
+                            next_step = self.run_step_and_traverse(
+                                workflow_config_flags,
+                                workflow_rules_config,
+                                &task,
+                            )?;
                         }
                         _ => {
                             unreachable!("This code is unreachable")

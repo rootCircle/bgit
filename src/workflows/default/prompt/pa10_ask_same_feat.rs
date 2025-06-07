@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa09_ask_branch_name::AskBranchName;
 use crate::{
@@ -25,7 +26,11 @@ impl PromptStep for AskIfSameFeat {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let options = vec!["Yes", "No"];
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Are you working on the same feature as older?")

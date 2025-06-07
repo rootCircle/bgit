@@ -1,3 +1,5 @@
+use crate::config::{StepFlags, WorkflowRules};
+
 use crate::{
     bgit_error::BGitError,
     events::{
@@ -36,7 +38,11 @@ impl ActionStep for RestoreChanges {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let git_restore = if let Some(mode) = &self.restore_mode {
             GitRestore::new().with_mode(mode.clone())
         } else {

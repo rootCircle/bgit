@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_branch::GitBranch;
 use crate::events::AtomicEvent;
 use crate::step::PromptStep;
@@ -29,7 +30,11 @@ impl ActionStep for MoveChanges {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         // Check if target branch name is provided
         let target_branch = match &self.target_branch_name {
             Some(name) => name.clone(),

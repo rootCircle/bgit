@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use dialoguer::{Confirm, Input};
 
 use crate::rules::Rule;
@@ -26,7 +27,11 @@ impl PromptStep for CloneGitRepo {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         // Take link input in cli
         let clone_link: String = Input::new()
             .with_prompt("Enter the link to the repository you want to clone")

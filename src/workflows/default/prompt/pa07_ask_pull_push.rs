@@ -1,3 +1,4 @@
+use crate::config::{StepFlags, WorkflowRules};
 use crate::workflows::default::action::ta09_pull_push::PullAndPush;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
@@ -23,7 +24,11 @@ impl PromptStep for AskPushPull {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to pull/push commits?")
             .default(0)

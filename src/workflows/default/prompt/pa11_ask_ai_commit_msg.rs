@@ -1,4 +1,5 @@
 use super::pa12_ask_commit_msg::AskHumanCommitMessage;
+use crate::config::{StepFlags, WorkflowRules};
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
@@ -27,7 +28,11 @@ impl PromptStep for AskAICommitMessage {
         &self.name
     }
 
-    fn execute(&self) -> Result<Step, Box<BGitError>> {
+    fn execute(
+        &self,
+        _step_config_flags: Option<&StepFlags>,
+        _workflow_rules_config: Option<&WorkflowRules>,
+    ) -> Result<Step, Box<BGitError>> {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want your commit message written by AI?")
             .default(0)
