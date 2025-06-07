@@ -3,7 +3,6 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use dialoguer::{theme::ColorfulTheme, Select};
 use git2::{build::CheckoutBuilder, Repository, ResetType};
 use std::path::Path;
 
@@ -49,11 +48,17 @@ impl AtomicEvent for GitRestore {
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         let restore_mode = if let Some(mode) = &self.mode {
-            mode.clone()
+            mode
         } else {
-            self.prompt_restore_mode()?
+            return Err(Box::new(BGitError::new(
+                "BGitError",
+                "Restore mode not specified for git restore operation",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                &self.name,
+                NO_RULE,
+            )));
         };
-
         match restore_mode {
             RestoreMode::RestoreAllUnstaged => self.restore_all_unstaged(),
             RestoreMode::UnstageAll => self.unstage_all_files(),
@@ -67,35 +72,6 @@ impl GitRestore {
     pub fn with_mode(mut self, mode: RestoreMode) -> Self {
         self.mode = Some(mode);
         self
-    }
-
-    fn prompt_restore_mode(&self) -> Result<RestoreMode, Box<BGitError>> {
-        let options = vec![
-            "Restore all unstaged changes (git restore .)",
-            "Unstage all files (git restore --staged .)",
-        ];
-
-        let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Choose restore mode:")
-            .default(0)
-            .items(&options)
-            .interact()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get user selection: {}", e),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
-
-        match selection {
-            0 => Ok(RestoreMode::RestoreAllUnstaged),
-            1 => Ok(RestoreMode::UnstageAll),
-            _ => Ok(RestoreMode::RestoreAllUnstaged),
-        }
     }
 
     /// Restore all unstaged changes (equivalent to `git restore .`)
