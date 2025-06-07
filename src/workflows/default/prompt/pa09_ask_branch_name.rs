@@ -39,10 +39,48 @@ impl PromptStep for AskBranchName {
             })?;
 
         // Validate branch name is not empty
-        if branch_name.trim().is_empty() {
+        let branch_name = branch_name.trim();
+
+        // Validate branch name is not empty
+        if branch_name.is_empty() {
             return Err(Box::new(BGitError::new(
                 "Invalid branch name",
                 "Branch name cannot be empty.",
+                BGitErrorWorkflowType::PromptStep,
+                &self.name,
+                NO_EVENT,
+                NO_RULE,
+            )));
+        }
+
+        // Convert spaces to hyphens for multi-word branch names
+        let branch_name = branch_name.replace(' ', "_");
+
+        // Validate git branch name rules
+        if branch_name.starts_with('-') || branch_name.ends_with('.') || branch_name.ends_with('/')
+        {
+            return Err(Box::new(BGitError::new(
+                "Invalid branch name",
+                "Branch name cannot start with '-' or end with '.' or '/'.",
+                BGitErrorWorkflowType::PromptStep,
+                &self.name,
+                NO_EVENT,
+                NO_RULE,
+            )));
+        }
+
+        // Check for invalid characters
+        if branch_name.contains("..")
+            || branch_name.chars().any(|c| {
+                matches!(
+                    c,
+                    '~' | '^' | ':' | '?' | '*' | '[' | '\\' | '\x00'..='\x1f' | '\x7f'
+                )
+            })
+        {
+            return Err(Box::new(BGitError::new(
+                "Invalid branch name",
+                "Branch name contains invalid characters.",
                 BGitErrorWorkflowType::PromptStep,
                 &self.name,
                 NO_EVENT,

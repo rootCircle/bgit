@@ -190,7 +190,7 @@ impl GitBranch {
             )));
         }
 
-        // Step 1: Save current changes to stash
+        // Step 1: Save current changes to stash with index
         let stash_message = self
             .stash_message
             .as_deref()
@@ -198,7 +198,6 @@ impl GitBranch {
         let _stash_id = self.save_changes_to_stash(repo, stash_message)?;
 
         // Step 2: Create new branch from current HEAD
-        // Limit the scope of target_commit to release the immutable borrow
         let branch_ref_name = {
             let target_commit = {
                 let head = repo.head().map_err(|e| {
@@ -236,7 +235,6 @@ impl GitBranch {
                     ))
                 })?;
 
-            // Get the branch reference name
             let branch = repo
                 .find_branch(target_branch_name, BranchType::Local)
                 .map_err(|e| {
@@ -281,9 +279,12 @@ impl GitBranch {
                 ))
             })?;
 
-        // Step 4: Pop the stash to apply changes to the new branch
-        // Now we can safely mutably borrow repo because target_commit has been dropped
+        // Step 4: Pop the stash with checkout strategy to preserve staging
         let mut apply_options = StashApplyOptions::default();
+        apply_options.checkout_options(CheckoutBuilder::default());
+        // Use reinstantiate_index to preserve the staging state from the stash
+        apply_options.reinstantiate_index();
+
         repo.stash_pop(0, Some(&mut apply_options)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
