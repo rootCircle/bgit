@@ -31,7 +31,6 @@ fn main() {
         .format_timestamp_secs()
         .init();
 
-    
         let bgit_config = BGitConfig::load().unwrap_or_else(|err| {
             err.print_error();
             std::process::exit(1);

@@ -1,13 +1,15 @@
+#![allow(dead_code)]
+
+use crate::bgit_error::BGitError;
+use crate::rules::RuleLevel;
+use git2::Repository;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use git2::Repository;
-use crate::bgit_error::BGitError;
-use crate::rules::RuleLevel;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Default, Serialize, Clone)]
 pub struct BGitConfig {
     #[serde(default)]
     pub rules: RuleConfig,
@@ -50,73 +52,67 @@ pub struct StepFlags {
     pub flags: HashMap<String, serde_json::Value>,
 }
 
-impl Default for BGitConfig {
-    fn default() -> Self {
-        Self {
-            rules: RuleConfig::default(),
-            workflow: WorkflowConfig::default(),
-        }
-    }
-}
-
 impl BGitConfig {
     /// Load config from .bgit/config.toml at repository root
     pub fn load() -> Result<Self, Box<BGitError>> {
         let config_path = Self::find_config_path()?;
-        
+
         if !config_path.exists() {
             // Return default config if file doesn't exist
             return Ok(Self::default());
         }
 
-        let config_content = fs::read_to_string(&config_path)
-            .map_err(|e| Box::new(BGitError::new(
+        let config_content = fs::read_to_string(&config_path).map_err(|e| {
+            Box::new(BGitError::new(
                 "Failed to read config file",
                 &format!("Could not read {}: {}", config_path.display(), e),
                 crate::bgit_error::BGitErrorWorkflowType::Config,
                 crate::bgit_error::NO_STEP,
                 crate::bgit_error::NO_EVENT,
                 crate::bgit_error::NO_RULE,
-            )))?;
+            ))
+        })?;
 
-        let config: BGitConfig = toml::from_str(&config_content)
-            .map_err(|e| Box::new(BGitError::new(
+        let config: BGitConfig = toml::from_str(&config_content).map_err(|e| {
+            Box::new(BGitError::new(
                 "Failed to parse config file",
                 &format!("Invalid TOML in {}: {}", config_path.display(), e),
                 crate::bgit_error::BGitErrorWorkflowType::Config,
                 crate::bgit_error::NO_STEP,
                 crate::bgit_error::NO_EVENT,
                 crate::bgit_error::NO_RULE,
-            )))?;
+            ))
+        })?;
 
         Ok(config)
     }
 
     /// Find the config file path, looking for .bgit/config.toml at repository root
     fn find_config_path() -> Result<PathBuf, Box<BGitError>> {
-        let cwd = env::current_dir()
-            .map_err(|e| Box::new(BGitError::new(
+        let cwd = env::current_dir().map_err(|e| {
+            Box::new(BGitError::new(
                 "Failed to get current directory",
                 &e.to_string(),
                 crate::bgit_error::BGitErrorWorkflowType::Config,
                 crate::bgit_error::NO_STEP,
                 crate::bgit_error::NO_EVENT,
                 crate::bgit_error::NO_RULE,
-            )))?;
+            ))
+        })?;
 
         // Try to find git repository root
         match Repository::discover(&cwd) {
             Ok(repo) => {
-                let repo_root = repo.path()
-                    .parent()
-                    .ok_or_else(|| Box::new(BGitError::new(
+                let repo_root = repo.path().parent().ok_or_else(|| {
+                    Box::new(BGitError::new(
                         "Failed to find repository root",
                         "Could not determine repository root directory",
                         crate::bgit_error::BGitErrorWorkflowType::Config,
                         crate::bgit_error::NO_STEP,
                         crate::bgit_error::NO_EVENT,
                         crate::bgit_error::NO_RULE,
-                    )))?;
+                    ))
+                })?;
                 Ok(repo_root.join(".bgit").join("config.toml"))
             }
             Err(_) => {
@@ -136,14 +132,23 @@ impl BGitConfig {
     }
 
     /// Get rule level with default workflow fallback
-    pub fn get_rule_level_or_default(&self, workflow_name: &str, rule_name: &str) -> Option<&RuleLevel> {
+    pub fn get_rule_level_or_default(
+        &self,
+        workflow_name: &str,
+        rule_name: &str,
+    ) -> Option<&RuleLevel> {
         // Try specific workflow first, then fall back to "default" workflow
         self.get_rule_level(workflow_name, rule_name)
             .or_else(|| self.get_rule_level("default", rule_name))
     }
 
     /// Get flag value for a specific workflow step
-    pub fn get_workflow_flag<T>(&self, workflow_name: &str, step_name: &str, flag_name: &str) -> Option<T>
+    pub fn get_workflow_flag<T>(
+        &self,
+        workflow_name: &str,
+        step_name: &str,
+        flag_name: &str,
+    ) -> Option<T>
     where
         T: serde::de::DeserializeOwned,
     {
@@ -158,7 +163,13 @@ impl BGitConfig {
     }
 
     /// Get flag value with default fallback
-    pub fn get_workflow_flag_or_default<T>(&self, workflow_name: &str, step_name: &str, flag_name: &str, default: T) -> T
+    pub fn get_workflow_flag_or_default<T>(
+        &self,
+        workflow_name: &str,
+        step_name: &str,
+        flag_name: &str,
+        default: T,
+    ) -> T
     where
         T: serde::de::DeserializeOwned,
     {
@@ -216,40 +227,92 @@ timeout = 30
 "#;
 
         let config: BGitConfig = toml::from_str(toml_content).unwrap();
-        
+
         // Test workflow-specific rule parsing
-        assert_eq!(config.get_rule_level("default", "a01_git_install"), Some(&RuleLevel::Warning));
-        assert_eq!(config.get_rule_level("default", "a02_git_name_email_setup"), Some(&RuleLevel::Error));
-        assert_eq!(config.get_rule_level("default", "a12_no_secrets_staged"), Some(&RuleLevel::Skip));
-        
-        assert_eq!(config.get_rule_level("git_commit", "a01_git_install"), Some(&RuleLevel::Error));
-        assert_eq!(config.get_rule_level("git_commit", "a17_conventional_commit_message"), Some(&RuleLevel::Warning));
-        
-        assert_eq!(config.get_rule_level("nonexistent", "a01_git_install"), None);
+        assert_eq!(
+            config.get_rule_level("default", "a01_git_install"),
+            Some(&RuleLevel::Warning)
+        );
+        assert_eq!(
+            config.get_rule_level("default", "a02_git_name_email_setup"),
+            Some(&RuleLevel::Error)
+        );
+        assert_eq!(
+            config.get_rule_level("default", "a12_no_secrets_staged"),
+            Some(&RuleLevel::Skip)
+        );
+
+        assert_eq!(
+            config.get_rule_level("git_commit", "a01_git_install"),
+            Some(&RuleLevel::Error)
+        );
+        assert_eq!(
+            config.get_rule_level("git_commit", "a17_conventional_commit_message"),
+            Some(&RuleLevel::Warning)
+        );
+
+        assert_eq!(
+            config.get_rule_level("nonexistent", "a01_git_install"),
+            None
+        );
         assert_eq!(config.get_rule_level("default", "nonexistent_rule"), None);
-        
+
         // Test fallback to default workflow
-        assert_eq!(config.get_rule_level_or_default("some_workflow", "a01_git_install"), Some(&RuleLevel::Warning));
-        assert_eq!(config.get_rule_level_or_default("git_commit", "a01_git_install"), Some(&RuleLevel::Error));
-        
+        assert_eq!(
+            config.get_rule_level_or_default("some_workflow", "a01_git_install"),
+            Some(&RuleLevel::Warning)
+        );
+        assert_eq!(
+            config.get_rule_level_or_default("git_commit", "a01_git_install"),
+            Some(&RuleLevel::Error)
+        );
+
         // Test workflow flag parsing
-        let authors: Option<Vec<String>> = config.get_workflow_flag("default", "is_sole_contributor", "overrideCheckForAuthors");
-        assert_eq!(authors, Some(vec!["Lab Rat <dev.frolics@gmail.com>".to_string()]));
-        
-        assert_eq!(config.get_workflow_flag::<bool>("default", "is_sole_contributor", "skipAddAll"), Some(true));
-        assert_eq!(config.get_workflow_flag::<bool>("default", "is_sole_contributor", "force"), Some(false));
-        
-        assert_eq!(config.get_workflow_flag::<bool>("git_commit", "git_add", "skipAddAll"), Some(true));
-        assert_eq!(config.get_workflow_flag::<bool>("git_commit", "git_add", "includeUntracked"), Some(false));
-        assert_eq!(config.get_workflow_flag::<i32>("git_commit", "git_add", "maxFileSize"), Some(100));
-        
-        assert_eq!(config.get_workflow_flag::<bool>("git_push", "pre_push_checks", "skipLinting"), Some(true));
-        assert_eq!(config.get_workflow_flag::<i32>("git_push", "pre_push_checks", "timeout"), Some(30));
-        
+        let authors: Option<Vec<String>> =
+            config.get_workflow_flag("default", "is_sole_contributor", "overrideCheckForAuthors");
+        assert_eq!(
+            authors,
+            Some(vec!["Lab Rat <dev.frolics@gmail.com>".to_string()])
+        );
+
+        assert_eq!(
+            config.get_workflow_flag::<bool>("default", "is_sole_contributor", "skipAddAll"),
+            Some(true)
+        );
+        assert_eq!(
+            config.get_workflow_flag::<bool>("default", "is_sole_contributor", "force"),
+            Some(false)
+        );
+
+        assert_eq!(
+            config.get_workflow_flag::<bool>("git_commit", "git_add", "skipAddAll"),
+            Some(true)
+        );
+        assert_eq!(
+            config.get_workflow_flag::<bool>("git_commit", "git_add", "includeUntracked"),
+            Some(false)
+        );
+        assert_eq!(
+            config.get_workflow_flag::<i32>("git_commit", "git_add", "maxFileSize"),
+            Some(100)
+        );
+
+        assert_eq!(
+            config.get_workflow_flag::<bool>("git_push", "pre_push_checks", "skipLinting"),
+            Some(true)
+        );
+        assert_eq!(
+            config.get_workflow_flag::<i32>("git_push", "pre_push_checks", "timeout"),
+            Some(30)
+        );
+
         // Test default fallback
-        assert_eq!(config.get_workflow_flag_or_default("nonexistent", "step", "flag", true), true);
-        assert_eq!(config.get_workflow_flag_or_default("git_commit", "git_add", "nonexistent", 42), 42);
-        
+        assert!(config.get_workflow_flag_or_default("nonexistent", "step", "flag", true));
+        assert_eq!(
+            config.get_workflow_flag_or_default("git_commit", "git_add", "nonexistent", 42),
+            42
+        );
+
         // Test flag existence
         assert!(config.has_workflow_flag("git_commit", "git_add", "skipAddAll"));
         assert!(!config.has_workflow_flag("git_commit", "git_add", "nonexistent"));
