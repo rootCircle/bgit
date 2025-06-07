@@ -1,7 +1,7 @@
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     events::git_restore::RestoreMode,
-    step::{PromptStep, Step, Task::ActionStepTask},
+    step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
     workflows::default::action::ta06_restore_changes::RestoreChanges,
 };
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -47,10 +47,10 @@ impl PromptStep for AskToRestore {
 
         match selection {
             0 => Ok(Step::Task(ActionStepTask(Box::new(
-                RestoreChanges::with_mode(RestoreMode::RestoreAllUnstaged),
+                RestoreChanges::new().with_mode(RestoreMode::RestoreAllUnstaged),
             )))),
             1 => Ok(Step::Task(ActionStepTask(Box::new(
-                RestoreChanges::with_mode(RestoreMode::UnstageAll),
+                RestoreChanges::new().with_mode(RestoreMode::UnstageAll),
             )))),
             2 => Ok(Step::Stop),
             _ => Err(Box::new(BGitError::new(

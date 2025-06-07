@@ -160,7 +160,7 @@ impl AtomicEvent for GitPull {
 }
 
 impl GitPull {
-    pub fn with_rebase(&mut self, rebase: bool) -> &mut Self {
+    pub fn with_rebase(mut self, rebase: bool) -> Self {
         self.rebase = rebase;
         self
     }

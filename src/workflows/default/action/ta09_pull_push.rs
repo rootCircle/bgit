@@ -27,8 +27,7 @@ impl ActionStep for PullAndPush {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         // Create GitPull instance with rebase flag enabled
-        let mut git_pull = GitPull::new();
-        git_pull.with_rebase(true);
+        let git_pull = GitPull::new().with_rebase(true);
 
         // Execute pull with rebase
         match git_pull.execute() {

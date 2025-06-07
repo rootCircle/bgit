@@ -1,6 +1,6 @@
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{PromptStep, Step, Task::ActionStepTask},
+    step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
     workflows::default::action::ta12_move_changes::MoveChanges,
 };
 use dialoguer::{theme::ColorfulTheme, Input};
@@ -50,7 +50,7 @@ impl PromptStep for AskBranchName {
             )));
         }
 
-        let move_changes = MoveChanges::with_target_branch(branch_name);
+        let move_changes = MoveChanges::new().with_target_branch(branch_name);
         Ok(Step::Task(ActionStepTask(Box::new(move_changes))))
     }
 }

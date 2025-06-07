@@ -50,7 +50,7 @@ impl ActionStep for MoveChanges {
 
         // Set custom stash message if provided
         if let Some(ref message) = self.stash_message {
-            git_branch.with_stash_message(message.clone());
+            git_branch.set_stash_message(message.clone());
         }
 
         // Execute move changes operation
@@ -63,11 +63,8 @@ impl ActionStep for MoveChanges {
 
 impl MoveChanges {
     /// Create a new MoveChanges instance with a target branch name
-    pub fn with_target_branch(target_branch_name: String) -> Self {
-        MoveChanges {
-            name: "move_changes".to_owned(),
-            target_branch_name: Some(target_branch_name),
-            stash_message: None,
-        }
+    pub fn with_target_branch(mut self, target_branch_name: String) -> Self {
+        self.target_branch_name = Some(target_branch_name);
+        self
     }
 }

@@ -42,7 +42,7 @@ impl GitBranch {
         }
     }
 
-    pub fn with_stash_message(&mut self, message: String) {
+    pub fn set_stash_message(&mut self, message: String) {
         self.stash_message = Some(message);
     }
 }

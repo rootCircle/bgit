@@ -3,19 +3,27 @@ name = "bgit"
 version = "0.2.1"
 edition = "2021"
 license = "MIT"
-authors = ["Gyan172004 <gkoncs@gmail.com>", "rootCircle <dev.frolics@gmail.com>"]
-repository = "https://github.com/Gyan172004/bgit"
+authors = [
+    "Gyan172004 <gkoncs@gmail.com>",
+    "rootCircle <dev.frolics@gmail.com>",
+    "Sidharth-Singh10 <sidharthsingh714@gmail.com>",
+]
+repository = "https://github.com/rootCircle/bgit"
 description = "User-friendly Git wrapper for beginners, automating essential tasks like adding, committing, and pushing changes. It includes smart rules to avoid common pitfalls, such as accidentally adding sensitive files or directories and has exclusive support for portable hooks!"
-categories = ["development-tools::testing", "command-line-utilities", "development-tools"]
+categories = [
+    "development-tools::testing",
+    "command-line-utilities",
+    "development-tools",
+]
 keywords = ["git", "beginner-friendly", "libgit-rs", "hooks", "smart-rules"]
 rust-version = "1.85"
 
 [dependencies]
-clap = { version = "4.5.31", features = ["derive"] }
-clap_complete = "4.5.46"
+clap = { version = "4.5.39", features = ["derive"] }
+clap_complete = "4.5.52"
 colored = "3.0.0"
 dialoguer = "0.11.0"
-git2 = "0.20.0"
+git2 = "0.20.2"
 indicatif = "0.17.11"
 google-generative-ai-rs = { version = "0.3.4", features = ["beta"] }
 tokio = { version = "1.45.1", features = ["full"] }
@@ -30,6 +38,4 @@ opt-level = 0
 opt-level = "z"
 lto = true
 codegen-units = 1
-strip = true  # Automatically strip symbols from the binary.
-
-
+strip = true

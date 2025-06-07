@@ -1,13 +1,13 @@
 # bgit: One command for most of git
-
+asbdb
 <div align="center">
 
-![GitHub repo size](https://img.shields.io/github/repo-size/Gyan172004/bgit?style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/Gyan172004/bgit/general.yml?style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Gyan172004/bgit/audit.yml?label=audit&style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
-![GitHub License](https://img.shields.io/github/license/Gyan172004/bgit?label=License&style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
+![GitHub repo size](https://img.shields.io/github/repo-size/rootCircle/bgit?style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/rootCircle/bgit/general.yml?style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rootCircle/bgit/audit.yml?label=audit&style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
+![GitHub License](https://img.shields.io/github/license/rootCircle/bgit?label=License&style=for-the-badge&logo=github&logoColor=D9E0EE&labelColor=292324)
 
-[![Codecov](https://img.shields.io/codecov/c/github/Gyan172004/bgit?label=Coverage&style=for-the-badge&logo=codecov&logoColor=D9E0EE&labelColor=292324)](https://codecov.io/gh/Gyan172004/bgit)
+[![Codecov](https://img.shields.io/codecov/c/github/rootCircle/bgit?label=Coverage&style=for-the-badge&logo=codecov&logoColor=D9E0EE&labelColor=292324)](https://codecov.io/gh/rootCircle/bgit)
 
 ![Crates.io](https://img.shields.io/crates/v/bgit?style=for-the-badge&logo=rust&logoColor=D9E0EE&labelColor=292324)
 ![Crates.io](https://img.shields.io/crates/d/bgit?style=for-the-badge&logo=rust&logoColor=D9E0EE&labelColor=292324)
@@ -56,11 +56,11 @@ If you're interested in finding how bgit works, take a look at [ARCHITECTURE.md]
 
 ## Contributing
 
-Contributions to bgit are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [bgit GitHub repository](https://github.com/Gyan172004/bgit).
+Contributions to bgit are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [bgit GitHub repository](https://github.com/rootCircle/bgit).
 
 ## License
 
-bgit is licensed under the MIT License. See the [LICENSE](https://github.com/Gyan172004/bgit/blob/main/LICENSE) file for details.
+bgit is licensed under the MIT License. See the [LICENSE](https://github.com/rootCircle/bgit/blob/main/LICENSE) file for details.
 
 ## Disclaimer
 

@@ -15,11 +15,9 @@ pub(crate) struct RestoreChanges {
 }
 
 impl RestoreChanges {
-    pub fn with_mode(mode: RestoreMode) -> Self {
-        RestoreChanges {
-            name: "restore_changes".to_owned(),
-            restore_mode: Some(mode),
-        }
+    pub fn with_mode(mut self, mode: RestoreMode) -> Self {
+        self.restore_mode = Some(mode);
+        self
     }
 }
 
@@ -40,7 +38,7 @@ impl ActionStep for RestoreChanges {
 
     fn execute(&self) -> Result<Step, Box<BGitError>> {
         let git_restore = if let Some(mode) = &self.restore_mode {
-            GitRestore::with_mode(mode.clone())
+            GitRestore::new().with_mode(mode.clone())
         } else {
             return Err(Box::new(BGitError::new(
                 "BGitError",

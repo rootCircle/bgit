@@ -28,7 +28,7 @@ fn main() {
         ))
         .format_timestamp_secs()
         .init();
-    
+
         match cli_instance.command {
             Some(Commands::Log) => log(),
             Some(Commands::Init) => init(),

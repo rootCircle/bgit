@@ -64,12 +64,9 @@ impl AtomicEvent for GitRestore {
 impl GitRestore {
     /// Prompt user to choose between different restore modes
     /// Create a new GitRestore with a specific mode (bypasses user prompt)
-    pub fn with_mode(mode: RestoreMode) -> Self {
-        GitRestore {
-            name: "git_restore".to_owned(),
-            pre_check_rules: vec![],
-            mode: Some(mode),
-        }
+    pub fn with_mode(mut self, mode: RestoreMode) -> Self {
+        self.mode = Some(mode);
+        self
     }
 
     fn prompt_restore_mode(&self) -> Result<RestoreMode, Box<BGitError>> {
