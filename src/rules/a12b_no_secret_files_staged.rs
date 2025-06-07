@@ -227,11 +227,18 @@ impl NoSecretFilesStaged {
     }
 
     fn add_to_gitignore(&self, files: &[String]) -> Result<(), std::io::Error> {
-        let gitignore_path = ".gitignore";
+        let repo_root = match Repository::open(".") {
+            Ok(repo) => repo
+                .workdir()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| Path::new(".").to_path_buf()),
+            Err(_) => Path::new(".").to_path_buf(),
+        };
+        let gitignore_path = repo_root.join(".gitignore");
 
         // Read existing .gitignore content
-        let existing_entries = if Path::new(gitignore_path).exists() {
-            let file = std::fs::File::open(gitignore_path)?;
+        let existing_entries = if gitignore_path.exists() {
+            let file = std::fs::File::open(&gitignore_path)?;
             let reader = BufReader::new(file);
             reader.lines().collect::<Result<Vec<_>, _>>()?
         } else {
@@ -242,7 +249,7 @@ impl NoSecretFilesStaged {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(gitignore_path)?;
+            .open(&gitignore_path)?;
 
         // Add new entries that don't already exist
         for file_path in files {

@@ -15,6 +15,7 @@ pub(crate) mod a12b_no_secret_files_staged;
 mod a13_git_lfs;
 pub(crate) mod a14_big_repo_size;
 mod a15_file_not_gitignored;
+pub(crate) mod a16_no_large_file;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum RuleLevel {

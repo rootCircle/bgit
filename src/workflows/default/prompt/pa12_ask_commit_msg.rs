@@ -1,10 +1,5 @@
 use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
-use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
-use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
-use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
-use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
-use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
@@ -58,12 +53,7 @@ impl PromptStep for AskHumanCommitMessage {
             )));
         }
 
-        let mut git_commit = GitCommit::new().with_commit_message(commit_message);
-        git_commit.add_pre_check_rule(Box::new(NoSecretsStaged::new()));
-        git_commit.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new()));
-        git_commit.add_pre_check_rule(Box::new(GitNameEmailSetup::new()));
-        git_commit.add_pre_check_rule(Box::new(NoSecretFilesStaged::new()));
-
+        let git_commit = GitCommit::new().with_commit_message(commit_message);
         git_commit.execute()?;
 
         // Return to next step (IsPushedPulled)
