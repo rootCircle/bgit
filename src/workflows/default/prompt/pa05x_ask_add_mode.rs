@@ -1,6 +1,10 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_add::{AddMode, GitAdd};
 use crate::events::{git_status, AtomicEvent};
+use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
+use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
+use crate::rules::a16_no_large_file::NoLargeFile;
+use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta07_has_uncommitted::HasUncommitted;
@@ -31,7 +35,7 @@ impl PromptStep for AskAddMode {
     fn execute(
         &self,
         _step_config_flags: Option<&StepFlags>,
-        _workflow_rules_config: Option<&WorkflowRules>,
+        workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         let options = vec!["Add all unstaged files", "Select specific files to add"];
         let selection = Select::with_theme(&ColorfulTheme::default())
@@ -65,7 +69,12 @@ impl PromptStep for AskAddMode {
         };
 
         // Create GitAdd instance with the selected mode and execute
-        let git_add = GitAdd::new().with_add_mode(add_mode);
+        let mut git_add = GitAdd::new().with_add_mode(add_mode);
+
+        git_add.add_pre_check_rule(Box::new(NoSecretsStaged::new(workflow_rules_config)));
+        git_add.add_pre_check_rule(Box::new(NoSecretFilesStaged::new(workflow_rules_config)));
+        git_add.add_pre_check_rule(Box::new(NoLargeFile::new(workflow_rules_config)));
+
         git_add.execute()?;
 
         Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new()))))

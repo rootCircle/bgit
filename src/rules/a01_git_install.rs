@@ -1,4 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use std::process::Command;
 
@@ -9,11 +10,18 @@ pub(crate) struct IsGitInstalledLocally {
 }
 
 impl Rule for IsGitInstalledLocally {
-    fn new() -> Self {
-        IsGitInstalledLocally {
-            name: "IsGitInstalledLocally".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Error;
+        let name = "IsGitInstalledLocally";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Check if Git is installed".to_string(),
-            level: RuleLevel::Error,
+            level: rule_level,
         }
     }
 

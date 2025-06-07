@@ -1,6 +1,11 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
+use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
+use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
+use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
+use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
+use crate::rules::a16_no_large_file::NoLargeFile;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
 use crate::rules::Rule;
 use crate::step::ActionStep;
@@ -32,7 +37,7 @@ impl PromptStep for AskHumanCommitMessage {
     fn execute(
         &self,
         _step_config_flags: Option<&StepFlags>,
-        _workflow_rules_config: Option<&WorkflowRules>,
+        workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         let commit_message: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Enter your commit message")
@@ -62,8 +67,15 @@ impl PromptStep for AskHumanCommitMessage {
 
         let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
         git_commit.add_pre_check_rule(Box::new(
-            ConventionalCommitMessage::new().with_message(commit_message),
+            ConventionalCommitMessage::new(workflow_rules_config).with_message(commit_message),
         ));
+
+        git_commit.add_pre_check_rule(Box::new(NoSecretsStaged::new(workflow_rules_config)));
+        git_commit.add_pre_check_rule(Box::new(NoSecretFilesStaged::new(workflow_rules_config)));
+        git_commit.add_pre_check_rule(Box::new(NoLargeFile::new(workflow_rules_config)));
+        git_commit.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));
+        git_commit.add_pre_check_rule(Box::new(GitNameEmailSetup::new(workflow_rules_config)));
+
         git_commit.execute()?;
 
         // Return to next step (IsPushedPulled)

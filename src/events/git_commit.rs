@@ -1,11 +1,7 @@
 use super::AtomicEvent;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::{
-        a02_git_name_email_setup::GitNameEmailSetup, a12_no_secrets_staged::NoSecretsStaged,
-        a12b_no_secret_files_staged::NoSecretFilesStaged, a14_big_repo_size::IsRepoSizeTooBig,
-        a16_no_large_file::NoLargeFile, Rule,
-    },
+    rules::Rule,
 };
 use git2::Repository;
 use std::path::Path;
@@ -24,13 +20,7 @@ impl AtomicEvent for GitCommit {
         GitCommit {
             name: "git_commit".to_owned(),
             commit_message: None,
-            pre_check_rules: vec![
-                Box::new(NoSecretsStaged::new()),
-                Box::new(NoSecretFilesStaged::new()),
-                Box::new(NoLargeFile::new()),
-                Box::new(IsRepoSizeTooBig::new()),
-                Box::new(GitNameEmailSetup::new()),
-            ],
+            pre_check_rules: vec![],
         }
     }
 

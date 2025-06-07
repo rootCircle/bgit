@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::{
+    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP},
+    config::WorkflowRules,
+};
 
 pub(crate) mod a01_git_install;
 pub(crate) mod a02_git_name_email_setup;
@@ -44,7 +47,7 @@ pub(crate) enum RuleOutput {
 ///     level: RuleLevel
 /// }
 pub(crate) trait Rule {
-    fn new() -> Self
+    fn new(config_rule_level: Option<&WorkflowRules>) -> Self
     where
         Self: Sized;
     fn get_name(&self) -> &str;

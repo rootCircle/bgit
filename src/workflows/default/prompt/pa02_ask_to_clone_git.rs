@@ -30,7 +30,7 @@ impl PromptStep for CloneGitRepo {
     fn execute(
         &self,
         _step_config_flags: Option<&StepFlags>,
-        _workflow_rules_config: Option<&WorkflowRules>,
+        workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         // Take link input in cli
         let clone_link: String = Input::new()
@@ -63,7 +63,7 @@ impl PromptStep for CloneGitRepo {
 
         // // Get a mutable reference to the GitClone event
         let mut git_clone = GitClone::new();
-        git_clone.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
+        git_clone.add_pre_check_rule(Box::new(IsGitInstalledLocally::new(workflow_rules_config)));
         // Set the URL
         git_clone.set_url(&clone_link);
 

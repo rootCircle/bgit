@@ -1,4 +1,5 @@
 use crate::bgit_error::BGitError;
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::Config;
 
@@ -9,11 +10,18 @@ pub(crate) struct GitNameEmailSetup {
 }
 
 impl Rule for GitNameEmailSetup {
-    fn new() -> Self {
-        GitNameEmailSetup {
-            name: "GitNameEmailSetup".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Error;
+        let name = "GitNameEmailSetup";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Ensure Git user.name and user.email are configured".to_string(),
-            level: RuleLevel::Error,
+            level: rule_level,
         }
     }
 

@@ -1,4 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::Repository;
 use std::fs;
@@ -12,11 +13,18 @@ pub(crate) struct IsRepoSizeTooBig {
 }
 
 impl Rule for IsRepoSizeTooBig {
-    fn new() -> Self {
-        IsRepoSizeTooBig {
-            name: "IsRepoSizeTooBig".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Warning;
+        let name = "IsRepoSizeTooBig";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Check if repository size exceeds the recommended limit".to_string(),
-            level: RuleLevel::Warning,
+            level: rule_level,
             max_size_mb: 100,
         }
     }

@@ -1,4 +1,5 @@
 use crate::bgit_error::BGitError;
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use regex::Regex;
 use std::collections::HashSet;
@@ -21,11 +22,18 @@ struct SecretPattern {
 }
 
 impl Rule for NoSecretsStaged {
-    fn new() -> Self {
-        NoSecretsStaged {
-            name: "NoSecretsStaged".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Error;
+        let name = "NoSecretsStaged";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Check that no secrets are staged for commit".to_string(),
-            level: RuleLevel::Error,
+            level: rule_level,
             secret_patterns: Self::initialize_patterns(),
         }
     }

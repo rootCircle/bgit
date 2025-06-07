@@ -32,10 +32,10 @@ impl PromptStep for InitGitRepo {
     fn execute(
         &self,
         _step_config_flags: Option<&StepFlags>,
-        _workflow_rules_config: Option<&WorkflowRules>,
+        workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         let mut git_init = GitInit::new().with_path(&self.path);
-        git_init.add_pre_check_rule(Box::new(IsGitInstalledLocally::new()));
+        git_init.add_pre_check_rule(Box::new(IsGitInstalledLocally::new(workflow_rules_config)));
         git_init.execute()?;
         Ok(Step::Stop)
     }

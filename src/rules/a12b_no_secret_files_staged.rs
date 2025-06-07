@@ -1,4 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::{Repository, Status, StatusOptions};
 use log::{info, warn};
@@ -14,11 +15,18 @@ pub(crate) struct NoSecretFilesStaged {
 }
 
 impl Rule for NoSecretFilesStaged {
-    fn new() -> Self {
-        NoSecretFilesStaged {
-            name: "NoSecretFilesStaged".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Error;
+        let name = "NoSecretFilesStaged";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Prevent staging of files that might contain secrets".to_string(),
-            level: RuleLevel::Error,
+            level: rule_level,
         }
     }
 

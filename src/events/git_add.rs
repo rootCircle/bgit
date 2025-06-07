@@ -1,10 +1,7 @@
 use super::AtomicEvent;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::{
-        a12_no_secrets_staged::NoSecretsStaged, a12b_no_secret_files_staged::NoSecretFilesStaged,
-        a16_no_large_file::NoLargeFile, Rule,
-    },
+    rules::Rule,
 };
 use git2::{IndexAddOption, Repository};
 use std::path::Path;
@@ -28,11 +25,7 @@ impl AtomicEvent for GitAdd {
     {
         GitAdd {
             name: "git_add".to_owned(),
-            pre_check_rules: vec![
-                Box::new(NoSecretsStaged::new()),
-                Box::new(NoSecretFilesStaged::new()),
-                Box::new(NoLargeFile::new()),
-            ],
+            pre_check_rules: vec![],
             add_mode: None,
         }
     }

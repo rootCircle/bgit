@@ -1,4 +1,5 @@
 use crate::bgit_error::BGitError;
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use regex::Regex;
 
@@ -10,12 +11,19 @@ pub(crate) struct ConventionalCommitMessage {
 }
 
 impl Rule for ConventionalCommitMessage {
-    fn new() -> Self {
-        ConventionalCommitMessage {
-            name: "ConventionalCommitMessage".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Warning;
+        let name = "ConventionalCommitMessage";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Ensure commit messages follow Conventional Commit specification"
                 .to_string(),
-            level: RuleLevel::Warning,
+            level: rule_level,
             message: None,
         }
     }
@@ -102,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_valid_conventional_commits() {
-        let rule = ConventionalCommitMessage::new();
+        let rule = ConventionalCommitMessage::new(None);
 
         // Valid conventional commits
         assert!(rule.is_conventional_commit("feat: add user authentication"));
@@ -130,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_invalid_conventional_commits() {
-        let rule = ConventionalCommitMessage::new();
+        let rule = ConventionalCommitMessage::new(None);
 
         // Invalid conventional commits
         assert!(!rule.is_conventional_commit("Add user authentication"));
@@ -153,7 +161,7 @@ mod tests {
     #[test]
     fn test_with_message_method() {
         let rule =
-            ConventionalCommitMessage::new().with_message("feat: add new feature".to_string());
+            ConventionalCommitMessage::new(None).with_message("feat: add new feature".to_string());
 
         let result = rule.check().unwrap();
         match result {
@@ -164,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_with_invalid_message() {
-        let rule = ConventionalCommitMessage::new().with_message("Add new feature".to_string());
+        let rule = ConventionalCommitMessage::new(None).with_message("Add new feature".to_string());
 
         let result = rule.check().unwrap();
         match result {
@@ -177,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_no_message_provided() {
-        let rule = ConventionalCommitMessage::new();
+        let rule = ConventionalCommitMessage::new(None);
 
         let result = rule.check().unwrap();
         match result {
@@ -190,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_rule_properties() {
-        let rule = ConventionalCommitMessage::new();
+        let rule = ConventionalCommitMessage::new(None);
 
         assert_eq!(rule.get_name(), "ConventionalCommitMessage");
         assert_eq!(
@@ -202,14 +210,14 @@ mod tests {
 
     #[test]
     fn test_try_fix_returns_false() {
-        let rule = ConventionalCommitMessage::new();
+        let rule = ConventionalCommitMessage::new(None);
         let result = rule.try_fix().unwrap();
         assert!(!result);
     }
 
     #[test]
     fn test_chaining_with_message() {
-        let rule = ConventionalCommitMessage::new()
+        let rule = ConventionalCommitMessage::new(None)
             .with_message("fix(auth): resolve token validation".to_string());
 
         let result = rule.check().unwrap();

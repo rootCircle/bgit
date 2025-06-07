@@ -32,6 +32,7 @@ rule_name = "Level"
 **Structure:**
 
 - `workflow_name` - Name of the workflow (e.g., `default`)
+- `rule_name` - Available inside `src/rules` directory for each named as return value of `self.get_name()` method. (eg: IsGitInstalledLocally, GitNameEmailSetup, NoSecretsStaged etc)
 
 **Available Rule Levels:**
 
@@ -43,11 +44,9 @@ rule_name = "Level"
 
 ```toml
 [rules.default]
-a01_git_install = "Warning"
-a02_git_name_email_setup = "Error"
-a12_no_secrets_staged = "Skip"
-a16_no_large_file = "Warning"
-a17_conventional_commit_message = "Error"
+IsGitInstalledLocally = "Error"
+GitNameEmailSetup = "Error"
+NoSecretsStaged = "Error"
 ```
 
 ### 2. Workflow Configuration
@@ -78,12 +77,9 @@ overrideCheckForAuthors = ["Name <email@gmail.com>"]
 ```toml
 # Rules configuration
 [rules.default]
-a01_git_install = "Warning"
-a02_git_name_email_setup = "Error"
-a12_no_secrets_staged = "Skip"
-a14_big_repo_size = "Warning"
-a16_no_large_file = "Error"
-a17_conventional_commit_message = "Warning"
+IsGitInstalledLocally = "Error"
+GitNameEmailSetup = "Error"
+NoSecretsStaged = "Error"
 
 # Workflow configurations
 [workflow.default.is_sole_contributor]

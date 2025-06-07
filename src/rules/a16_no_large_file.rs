@@ -1,4 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
+use crate::config::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::{Repository, Status, StatusOptions};
 use std::fs;
@@ -13,11 +14,18 @@ pub(crate) struct NoLargeFile {
 }
 
 impl Rule for NoLargeFile {
-    fn new() -> Self {
-        NoLargeFile {
-            name: "NoLargeFile".to_string(),
+    fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+        let default_rule_level = RuleLevel::Warning;
+        let name = "NoLargeFile";
+        let rule_level = workflow_rule_config
+            .and_then(|config| config.get_rule_level(name))
+            .cloned()
+            .unwrap_or(default_rule_level);
+
+        Self {
+            name: name.to_string(),
             description: "Ensure large files are tracked with Git LFS".to_string(),
-            level: RuleLevel::Warning,
+            level: rule_level,
             threshold_bytes: 5 * 1024 * 1024, // 5 MB default
         }
     }
