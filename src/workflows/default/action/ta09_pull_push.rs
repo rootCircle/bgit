@@ -40,7 +40,9 @@ impl ActionStep for PullAndPush {
                 // Pull successful, now attempt push
                 let mut git_push = GitPush::new();
                 // Configure push options - you can customize these as needed
-                git_push.set_force(false).set_upstream_flag(false);
+                git_push
+                    .set_force_with_lease(false)
+                    .set_upstream_flag(false);
 
                 match git_push.execute() {
                     Ok(_) => {
