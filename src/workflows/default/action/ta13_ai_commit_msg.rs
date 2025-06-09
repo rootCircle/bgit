@@ -1,12 +1,12 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
+use crate::rules::Rule;
 use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
 use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
 use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
 use crate::rules::a16_no_large_file::NoLargeFile;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
-use crate::rules::Rule;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
 use crate::{
@@ -17,8 +17,8 @@ use git2::{DiffOptions, Repository};
 use google_generative_ai_rs::v1::{
     api::{Client, PostResult},
     gemini::{
-        request::{Request, SystemInstructionContent, SystemInstructionPart},
         Content, Model, Part, Role,
+        request::{Request, SystemInstructionContent, SystemInstructionPart},
     },
 };
 use log::debug;

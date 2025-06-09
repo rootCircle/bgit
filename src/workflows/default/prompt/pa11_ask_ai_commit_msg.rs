@@ -8,7 +8,7 @@ use crate::{
     step::{PromptStep, Step},
     workflows::default::action::ta13_ai_commit_msg::AICommit,
 };
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 
 pub(crate) struct AskAICommitMessage {
     name: String,

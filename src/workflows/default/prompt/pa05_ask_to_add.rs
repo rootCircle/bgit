@@ -5,7 +5,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     step::{PromptStep, Step},
 };
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 
 use super::pa06_ask_restore_changes::AskToRestore;
 pub(crate) struct AskToAdd {

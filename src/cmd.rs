@@ -6,7 +6,7 @@ pub(crate) mod log;
 use std::io;
 
 use clap::{Command, CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Generator, Shell};
+use clap_complete::{Generator, Shell, generate};
 use colored::Colorize;
 
 #[derive(Debug, Parser)] // requires `derive` feature

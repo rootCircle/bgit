@@ -4,7 +4,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
 };
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 
 pub(crate) struct AskPushPull {
     name: String,

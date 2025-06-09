@@ -8,7 +8,7 @@ use crate::{
     step::{PromptStep, Step},
     workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled,
 };
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 pub(crate) struct AskCommit {
     name: String,
 }

@@ -1,13 +1,13 @@
 use crate::config::{StepFlags, WorkflowRules};
-use crate::events::git_commit::GitCommit;
 use crate::events::AtomicEvent;
+use crate::events::git_commit::GitCommit;
+use crate::rules::Rule;
 use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
 use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
 use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
 use crate::rules::a16_no_large_file::NoLargeFile;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
-use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
@@ -15,7 +15,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     step::{PromptStep, Step},
 };
-use dialoguer::{theme::ColorfulTheme, Input};
+use dialoguer::{Input, theme::ColorfulTheme};
 pub(crate) struct AskHumanCommitMessage {
     name: String,
 }

@@ -4,7 +4,7 @@ use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa05_ask_to_add::AskToAdd;
 use crate::{
     bgit_error::BGitError,
-    events::{git_stash::GitStash, AtomicEvent},
+    events::{AtomicEvent, git_stash::GitStash},
     step::{ActionStep, Step},
 };
 pub(crate) struct PopStash {

@@ -1,6 +1,6 @@
 use crate::config::{StepFlags, WorkflowRules};
-use crate::events::git_branch::GitBranch;
 use crate::events::AtomicEvent;
+use crate::events::git_branch::GitBranch;
 use crate::step::PromptStep;
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa08_ask_commit::AskCommit;

@@ -2,7 +2,7 @@ use crate::config::{StepFlags, WorkflowRules};
 use crate::rules::Rule;
 use crate::{
     bgit_error::BGitError,
-    events::{git_init::GitInit, AtomicEvent},
+    events::{AtomicEvent, git_init::GitInit},
     rules::a01_git_install::IsGitInstalledLocally,
     step::{PromptStep, Step},
 };

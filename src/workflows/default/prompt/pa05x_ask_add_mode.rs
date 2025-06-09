@@ -1,10 +1,10 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_add::{AddMode, GitAdd};
-use crate::events::{git_status, AtomicEvent};
+use crate::events::{AtomicEvent, git_status};
+use crate::rules::Rule;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
 use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
 use crate::rules::a16_no_large_file::NoLargeFile;
-use crate::rules::Rule;
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta07_has_uncommitted::HasUncommitted;
@@ -13,7 +13,7 @@ use crate::{
     step::{PromptStep, Step},
 };
 
-use dialoguer::{theme::ColorfulTheme, MultiSelect, Select};
+use dialoguer::{MultiSelect, Select, theme::ColorfulTheme};
 pub(crate) struct AskAddMode {
     name: String,
 }

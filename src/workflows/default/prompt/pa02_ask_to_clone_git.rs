@@ -4,7 +4,7 @@ use dialoguer::{Confirm, Input};
 use crate::rules::Rule;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType},
-    events::{git_clone::GitClone, AtomicEvent},
+    events::{AtomicEvent, git_clone::GitClone},
     rules::a01_git_install::IsGitInstalledLocally,
     step::{PromptStep, Step},
 };

@@ -464,8 +464,8 @@ impl GitPull {
 
     /// Set up authentication callbacks for git operations
     fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let mut callbacks = git2::RemoteCallbacks::new();
         let attempt_count = Arc::new(AtomicUsize::new(0));

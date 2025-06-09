@@ -6,7 +6,7 @@ use crate::{
     events::git_restore::{GitRestore, RestoreMode},
     step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
 };
-use dialoguer::{theme::ColorfulTheme, MultiSelect};
+use dialoguer::{MultiSelect, theme::ColorfulTheme};
 pub(crate) struct AskToRestore {
     name: String,
 }
@@ -70,7 +70,7 @@ impl PromptStep for AskToRestore {
                         &self.name,
                         NO_EVENT,
                         NO_RULE,
-                    )))
+                    )));
                 }
             }
         }

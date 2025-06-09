@@ -1,7 +1,7 @@
 use crate::config::{StepFlags, WorkflowRules};
+use crate::events::AtomicEvent;
 use crate::events::git_pull::GitPull;
 use crate::events::git_push::GitPush;
-use crate::events::AtomicEvent;
 
 use crate::{
     bgit_error::BGitError,

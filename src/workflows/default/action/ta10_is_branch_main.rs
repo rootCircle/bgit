@@ -1,7 +1,7 @@
 use super::ta11_is_sole_contributor::IsSoleContributor;
 use crate::config::{StepFlags, WorkflowRules};
-use crate::events::git_branch::GitBranch;
 use crate::events::AtomicEvent;
+use crate::events::git_branch::GitBranch;
 use crate::step::PromptStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;

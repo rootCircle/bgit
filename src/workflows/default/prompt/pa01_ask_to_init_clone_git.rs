@@ -9,7 +9,7 @@ use crate::{
         prompt::pa02_ask_to_clone_git::CloneGitRepo, prompt::pa03_init_git_repo::InitGitRepo,
     },
 };
-use dialoguer::{theme::ColorfulTheme, Input, Select};
+use dialoguer::{Input, Select, theme::ColorfulTheme};
 
 pub(crate) struct AskToInitCloneGit {
     name: String,

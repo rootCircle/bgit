@@ -6,8 +6,8 @@ use crate::{
     step::{PromptStep, Step},
     workflows::default::prompt::pa08_ask_commit::AskCommit,
 };
-use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
+use dialoguer::theme::ColorfulTheme;
 pub(crate) struct AskIfSameFeat {
     name: String,
 }

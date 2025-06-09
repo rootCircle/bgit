@@ -1,6 +1,6 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_log::GitLog;
-use crate::events::{git_config, AtomicEvent};
+use crate::events::{AtomicEvent, git_config};
 use crate::flags::config_flag;
 use crate::step::PromptStep;
 use crate::step::Task::PromptStepTask;

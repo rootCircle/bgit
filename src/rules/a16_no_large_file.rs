@@ -282,7 +282,7 @@ impl NoLargeFile {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     "Could not open git repository",
-                ))
+                ));
             }
         };
 
@@ -292,7 +292,7 @@ impl NoLargeFile {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Repository has no working directory",
-                ))
+                ));
             }
         };
 

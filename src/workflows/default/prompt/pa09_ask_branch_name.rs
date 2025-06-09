@@ -4,7 +4,7 @@ use crate::{
     step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
     workflows::default::action::ta12_move_changes::MoveChanges,
 };
-use dialoguer::{theme::ColorfulTheme, Input};
+use dialoguer::{Input, theme::ColorfulTheme};
 
 pub(crate) struct AskBranchName {
     name: String,

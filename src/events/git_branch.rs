@@ -3,7 +3,7 @@ use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     rules::Rule,
 };
-use git2::{build::CheckoutBuilder, BranchType, Repository, StashApplyOptions, StashFlags};
+use git2::{BranchType, Repository, StashApplyOptions, StashFlags, build::CheckoutBuilder};
 use std::path::Path;
 
 #[derive(Debug, Clone)]
