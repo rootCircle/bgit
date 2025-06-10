@@ -69,7 +69,7 @@ flag_name = value
 
 ```toml
 [workflow.default.is_sole_contributor]
-overrideCheckForAuthors = ["Name <email@gmail.com>"]
+overrideCheckForAuthors = ["email@gmail.com"]
 ```
 
 ## Complete Configuration Example
@@ -83,7 +83,7 @@ NoSecretsStaged = "Error"
 
 # Workflow configurations
 [workflow.default.is_sole_contributor]
-overrideCheckForAuthors = ["Name <email@gmail.com>"]
+overrideCheckForAuthors = ["email@gmail.com"]
 ```
 
 ## Default Behavior
