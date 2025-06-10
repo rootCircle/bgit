@@ -1,10 +1,9 @@
-use std::path::Path;
-
 use super::AtomicEvent;
 use crate::bgit_error::BGitError;
 use crate::rules::Rule;
-use git2::{Cred, CredentialType, Repository};
-use log::debug;
+use crate::utils::git_auth::setup_auth_callbacks;
+use git2::Repository;
+use std::path::Path;
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -220,155 +219,10 @@ impl GitPush {
         Ok(())
     }
 
-    /// Set up authentication callbacks for git operations
-    fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        let mut callbacks = git2::RemoteCallbacks::new();
-        let attempt_count = Arc::new(AtomicUsize::new(0));
-
-        callbacks.credentials(move |url, username_from_url, allowed_types| {
-            let current_attempt = attempt_count.fetch_add(1, Ordering::SeqCst);
-            // Limit authentication attempts to prevent infinite loops
-            if current_attempt > 3 {
-                return Err(git2::Error::new(
-                    git2::ErrorCode::Auth,
-                    git2::ErrorClass::Net,
-                    "Maximum authentication attempts exceeded",
-                ));
-            }
-
-            // If SSH key authentication is allowed
-            if allowed_types.contains(CredentialType::SSH_KEY) {
-                if let Some(username) = username_from_url {
-                    // Try SSH agent first (most common and secure)
-                    match Cred::ssh_key_from_agent(username) {
-                        Ok(cred) => {
-                            return Ok(cred);
-                        }
-                        Err(e) => {
-                            println!("SSH agent failed: {e}");
-                        }
-                    }
-
-                    // Try to find SSH keys in standard locations
-                    let home_dir = std::env::var("HOME")
-                        .or_else(|_| std::env::var("USERPROFILE"))
-                        .unwrap_or_else(|_| ".".to_string());
-
-                    let ssh_dir = Path::new(&home_dir).join(".ssh");
-
-                    // Common SSH key file names in order of preference
-                    let key_files = [
-                        ("id_ed25519", "id_ed25519.pub"),
-                        ("id_rsa", "id_rsa.pub"),
-                        ("id_ecdsa", "id_ecdsa.pub"),
-                        ("id_dsa", "id_dsa.pub"),
-                    ];
-
-                    for (private_name, public_name) in &key_files {
-                        let private_key = ssh_dir.join(private_name);
-                        let public_key = ssh_dir.join(public_name);
-
-                        if private_key.exists() {
-                            // Try with public key if it exists
-                            if public_key.exists() {
-                                match Cred::ssh_key(username, Some(&public_key), &private_key, None)
-                                {
-                                    Ok(cred) => {
-                                        return Ok(cred);
-                                    }
-                                    Err(e) => {
-                                        println!("SSH key with public key failed: {e}");
-                                    }
-                                }
-                            }
-
-                            // Try without public key
-                            match Cred::ssh_key(username, None, &private_key, None) {
-                                Ok(cred) => {
-                                    return Ok(cred);
-                                }
-                                Err(e) => {
-                                    println!("SSH key without public key failed: {e}");
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    println!("No username provided for SSH authentication");
-                }
-            }
-
-            // If username/password authentication is allowed (HTTPS)
-            if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-                // Try to get credentials from git config or environment
-                if let (Ok(username), Ok(password)) =
-                    (std::env::var("GIT_USERNAME"), std::env::var("GIT_PASSWORD"))
-                {
-                    return Cred::userpass_plaintext(&username, &password);
-                }
-
-                // For GitHub, you might want to use a personal access token
-                if url.contains("github.com")
-                    && let Ok(token) = std::env::var("GITHUB_TOKEN")
-                {
-                    return Cred::userpass_plaintext("git", &token);
-                }
-            }
-
-            // Default authentication (tries default SSH key)
-            if allowed_types.contains(CredentialType::DEFAULT) {
-                match Cred::default() {
-                    Ok(cred) => {
-                        return Ok(cred);
-                    }
-                    Err(e) => {
-                        println!("Default authentication failed: {e}");
-                    }
-                }
-            }
-
-            Err(git2::Error::new(
-                git2::ErrorCode::Auth,
-                git2::ErrorClass::Net,
-                format!(
-                    "Authentication failed after {} attempts for {}. Available methods: {:?}",
-                    current_attempt + 1,
-                    url,
-                    allowed_types
-                ),
-            ))
-        });
-
-        // Add push update reference callback for better error reporting
-        callbacks.push_update_reference(|refname, status| match status {
-            Some(msg) => {
-                println!("Push failed for {refname}: {msg}");
-                Err(git2::Error::from_str(msg))
-            }
-            None => {
-                println!("Push successful for {refname}");
-                Ok(())
-            }
-        });
-
-        // Set up certificate check callback for HTTPS
-        callbacks.certificate_check(|_cert, _host| {
-            // In production, you should properly validate certificates
-            // For now, we'll accept all certificates (not recommended for production)
-            println!("Certificate check for host: {_host}");
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
-
-        callbacks
-    }
-
     /// Create push options with authentication
     fn create_push_options() -> git2::PushOptions<'static> {
         let mut push_options = git2::PushOptions::new();
-        push_options.remote_callbacks(Self::setup_auth_callbacks());
+        push_options.remote_callbacks(setup_auth_callbacks());
         push_options
     }
 }
