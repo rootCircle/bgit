@@ -298,11 +298,10 @@ impl NoSecretsStaged {
         for pattern in &self.secret_patterns {
             for capture in pattern.regex.captures_iter(&added_content) {
                 let full_match = capture.get(0).unwrap().as_str();
-
                 // Extract the actual secret value (usually in capture group 2 for quoted patterns)
-                let secret_value = if capture.len() > 2 {
+                let secret_value = if capture.len() > 2 && capture.get(2).is_some() {
                     capture.get(2).unwrap().as_str()
-                } else if capture.len() > 1 {
+                } else if capture.len() > 1 && capture.get(1).is_some() {
                     capture.get(1).unwrap().as_str()
                 } else {
                     full_match

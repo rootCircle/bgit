@@ -20,7 +20,7 @@ pub(crate) struct NoLargeFile {
 
 impl Rule for NoLargeFile {
     fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
-        let default_rule_level = RuleLevel::Warning;
+        let default_rule_level = RuleLevel::Error;
         let name = "NoLargeFile";
         let rule_level = workflow_rule_config
             .and_then(|config| config.get_rule_level(name))
@@ -75,6 +75,7 @@ impl Rule for NoLargeFile {
 
         let mut total_size = 0u64;
         let mut file_count = 0;
+        let mut large_files = Vec::new();
 
         for entry in statuses.iter() {
             let file_path = match entry.path() {
@@ -93,6 +94,13 @@ impl Rule for NoLargeFile {
                 if let Ok(file_size) = self.get_file_size(file_path) {
                     total_size += file_size;
                     file_count += 1;
+                    if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
+                        large_files.push(format!(
+                            "{} ({:.1} MB)",
+                            file_path,
+                            file_size as f64 / (1024.0 * 1024.0)
+                        ));
+                    }
                 }
             }
         }
@@ -103,6 +111,11 @@ impl Rule for NoLargeFile {
                 total_size as f64 / (1024.0 * 1024.0),
                 file_count,
                 self.total_threshold_bytes as f64 / (1024.0 * 1024.0)
+            )))
+        } else if !large_files.is_empty() {
+            Ok(RuleOutput::Exception(format!(
+                "Large files detected that should use Git LFS: {}",
+                large_files.join(", ")
             )))
         } else {
             Ok(RuleOutput::Success)
@@ -142,6 +155,8 @@ impl Rule for NoLargeFile {
             }
         };
 
+        let mut total_size = 0u64;
+        let mut file_count = 0;
         let mut large_files = Vec::new();
 
         for entry in statuses.iter() {
@@ -158,6 +173,8 @@ impl Rule for NoLargeFile {
                 || status.contains(Status::WT_MODIFIED)
             {
                 if let Ok(file_size) = self.get_file_size(file_path) {
+                    total_size += file_size;
+                    file_count += 1;
                     if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
                         large_files.push(file_path.to_string());
                     }
@@ -165,52 +182,73 @@ impl Rule for NoLargeFile {
             }
         }
 
-        if large_files.is_empty() {
+        // Check if total size threshold is exceeded
+        let total_threshold_exceeded = total_size > self.total_threshold_bytes;
+
+        if !total_threshold_exceeded && large_files.is_empty() {
             return Ok(true);
         }
 
-        println!("Large files detected that should use Git LFS:");
-        for file in &large_files {
-            let size = self.get_file_size(file).unwrap_or(0);
-            println!("  {} ({:.1} MB)", file, size as f64 / (1024.0 * 1024.0));
+        if total_threshold_exceeded {
+            println!(
+                "Total size of staged/modified files ({:.1} MB across {} files) exceeds threshold ({:.1} MB).",
+                total_size as f64 / (1024.0 * 1024.0),
+                file_count,
+                self.total_threshold_bytes as f64 / (1024.0 * 1024.0)
+            );
+            println!("Consider using Git LFS for large files or adding them to .gitignore.\n");
+        }
+
+        if !large_files.is_empty() {
+            println!("Large files detected that should use Git LFS:");
+            for file in &large_files {
+                let size = self.get_file_size(file).unwrap_or(0);
+                println!("  {} ({:.1} MB)", file, size as f64 / (1024.0 * 1024.0));
+            }
         }
 
         println!("\nTo fix this issue:");
         println!("1. Install Git LFS if not already installed:");
         println!("   git lfs install");
-        println!("\n2. Track large files by extension or specific files:");
 
-        // Suggest tracking by extension
-        let mut extensions = std::collections::HashSet::new();
-        for file in &large_files {
-            if let Some(ext) = Path::new(file).extension().and_then(|s| s.to_str()) {
-                extensions.insert(ext);
+        if !large_files.is_empty() {
+            println!("\n2. Track large files by extension or specific files:");
+
+            // Suggest tracking by extension
+            let mut extensions = std::collections::HashSet::new();
+            for file in &large_files {
+                if let Some(ext) = Path::new(file).extension().and_then(|s| s.to_str()) {
+                    extensions.insert(ext);
+                }
             }
-        }
 
-        for ext in &extensions {
-            println!("   git lfs track \"*.{}\"", ext);
-        }
-
-        println!("\n3. Add .gitattributes and re-add the files:");
-        println!("   git add .gitattributes");
-        for file in &large_files {
-            println!("   git add {}", file);
-        }
-
-        // For automatic fix, we'll add the extensions to .gitattributes
-        match self.add_lfs_tracking(&extensions.into_iter().collect::<Vec<_>>()) {
-            Ok(_) => {
-                println!("\nAutomatically added LFS tracking to .gitattributes");
-                Ok(true)
+            for ext in &extensions {
+                println!("   git lfs track \"*.{}\"", ext);
             }
-            Err(e) => {
-                eprintln!(
-                    "Warning: Failed to automatically update .gitattributes: {}",
-                    e
-                );
-                Ok(false)
+
+            println!("\n3. Add .gitattributes and re-add the files:");
+            println!("   git add .gitattributes");
+            println!("   git add {}", large_files.join(" "));
+
+            // For automatic fix, we'll add the extensions to .gitattributes
+            match self.add_lfs_tracking(&extensions.into_iter().collect::<Vec<_>>()) {
+                Ok(_) => {
+                    println!("\nAutomatically added LFS tracking to .gitattributes");
+                    Ok(true)
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to automatically update .gitattributes: {}",
+                        e
+                    );
+                    Ok(false)
+                }
             }
+        } else {
+            println!("\nConsider reviewing your files and either:");
+            println!("- Adding large files to .gitignore if they shouldn't be tracked");
+            println!("- Setting up Git LFS for files that should be version controlled");
+            Ok(false)
         }
     }
 }
