@@ -8,6 +8,12 @@
 2. Check these for inspirations on possible Rules: <https://github.com/pre-commit/pre-commit-hooks/tree/main/pre_commit_hooks>
 3. <https://github.com/extrawurst/gitui/tree/master/asyncgit>
 
+### Library related to git
+
+1. <https://github.com/GitoxideLabs/gitoxide> (<https://docs.rs/gix/latest/gix/>)
+2. <https://github.com/rust-lang/git2-rs>
+3. <https://github.com/libgit2/libgit2>
+
 ### Prototype
 
 1. <https://excalidraw.com/#json=v2xmJf0UFaYobGuRx6O-Z,TQqxjAacrxS7e2dIpugsJQ>
