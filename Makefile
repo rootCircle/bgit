@@ -31,7 +31,8 @@ eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
 	release \
 	coverage \
 	precommit \
-	precommit-fix
+	precommit-fix \
+	install
 
 # Compile application for running on local machine
 #
@@ -94,3 +95,6 @@ coverage:
 
 release:
 	cargo smart-release bgit --execute --update-crates-index
+
+install:
+	cargo install --locked --path .

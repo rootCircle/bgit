@@ -91,7 +91,7 @@ impl Rule for NoLargeFile {
                 || status.contains(Status::WT_NEW)
                 || status.contains(Status::WT_MODIFIED)
             {
-                if let Ok(file_size) = self.get_file_size(file_path) {
+                if let Ok(file_size) = Self::get_path_size(file_path) {
                     total_size += file_size;
                     file_count += 1;
                     if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
@@ -172,7 +172,7 @@ impl Rule for NoLargeFile {
                 || status.contains(Status::WT_NEW)
                 || status.contains(Status::WT_MODIFIED)
             {
-                if let Ok(file_size) = self.get_file_size(file_path) {
+                if let Ok(file_size) = Self::get_path_size(file_path) {
                     total_size += file_size;
                     file_count += 1;
                     if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
@@ -202,7 +202,7 @@ impl Rule for NoLargeFile {
         if !large_files.is_empty() {
             println!("Large files detected that should use Git LFS:");
             for file in &large_files {
-                let size = self.get_file_size(file).unwrap_or(0);
+                let size = Self::get_path_size(file).unwrap_or(0);
                 println!("  {} ({:.1} MB)", file, size as f64 / (1024.0 * 1024.0));
             }
         }
@@ -254,9 +254,24 @@ impl Rule for NoLargeFile {
 }
 
 impl NoLargeFile {
-    fn get_file_size(&self, file_path: &str) -> Result<u64, std::io::Error> {
-        let metadata = fs::metadata(file_path)?;
-        Ok(metadata.len())
+    fn get_path_size(path: &str) -> Result<u64, std::io::Error> {
+        let metadata = fs::metadata(path)?;
+        if metadata.is_file() {
+            Ok(metadata.len())
+        } else if metadata.is_dir() {
+            let mut total_size = 0u64;
+            let entries = fs::read_dir(path)?;
+            for entry in entries {
+                let entry = entry?;
+                let entry_path = entry.path();
+                if let Some(path_str) = entry_path.to_str() {
+                    total_size += Self::get_path_size(path_str)?;
+                }
+            }
+            Ok(total_size)
+        } else {
+            Ok(0)
+        }
     }
 
     fn is_lfs_tracked(&self, file_path: &str) -> Result<bool, Box<BGitError>> {
