@@ -8,6 +8,7 @@ use crate::config::BGitConfig;
 mod bgit_error;
 mod cmd;
 mod config;
+mod constants;
 mod events;
 mod flags;
 mod hook_executor;

@@ -1,5 +1,6 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
 use crate::config::WorkflowRules;
+use crate::constants::DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::{Repository, Status, StatusOptions};
 use std::fs;
@@ -26,7 +27,7 @@ impl Rule for NoLargeFile {
             name: name.to_string(),
             description: "Ensure large files are tracked with Git LFS".to_string(),
             level: rule_level,
-            threshold_bytes: 5 * 1024 * 1024, // 5 MB default
+            threshold_bytes: DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES,
         }
     }
 
