@@ -48,19 +48,26 @@ pub(crate) enum RuleOutput {
 /// }
 pub(crate) trait Rule {
     /// Sample constructor for Rule
-    /// ```rs
-    /// let default_rule_level = RuleLevel::Error; // or anthing else you want for this rule
-    /// let name = "IsGitInstalledLocally";
-    /// let rule_level = workflow_rule_config
-    ///     .and_then(|config| config.get_rule_level(name))
-    ///     .cloned()
-    ///     .unwrap_or(default_rule_level); // MUST DO
+    /// This function should be implemented to create a new instance of the rule.
+    /// It should take an optional `WorkflowRules` configuration to determine the rule level.
+    /// This is from `.bgit/config.toml` file, if a given rule needs to be overriden.
     ///
-    /// // Can add other fields as needed
-    /// Self {
-    ///     name: name.to_string(),
-    ///     description: "Check if Git is installed".to_string(), // or anything else you want for this rule
-    ///     level: rule_level,
+    /// Ensure that you do override the rule level as is provided in the implementation below.
+    /// ```rust
+    /// fn new(workflow_rule_config: Option<&WorkflowRules>) -> Self {
+    ///     let default_rule_level = RuleLevel::Error; // or anthing else you want for this rule
+    ///     let name = "IsGitInstalledLocally";
+    ///     let rule_level = workflow_rule_config
+    ///         .and_then(|config| config.get_rule_level(name))
+    ///         .cloned()
+    ///         .unwrap_or(default_rule_level); // MUST DO
+    ///
+    ///     // Can add other fields as needed
+    ///     Self {
+    ///         name: name.to_string(),
+    ///         description: "Check if Git is installed".to_string(), // or anything else you want for this rule
+    ///         level: rule_level,
+    ///     }
     /// }
     /// ```
     fn new(config_rule_level: Option<&WorkflowRules>) -> Self

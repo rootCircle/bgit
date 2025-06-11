@@ -29,7 +29,9 @@ eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
 	stop \
 	rm \
 	release \
-	coverage
+	coverage \
+	precommit \
+	precommit-fix
 
 # Compile application for running on local machine
 #
@@ -81,6 +83,10 @@ test :
 # Usage :
 #	make precommit
 precommit : fmt clippy test
+
+precommit-fix:
+	cargo fmt --all
+	cargo clippy --all-features --all-targets --fix --allow-dirty
 
 coverage:
 	cargo llvm-cov clean --workspace --html --output-dir=coverage

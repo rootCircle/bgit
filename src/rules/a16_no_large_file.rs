@@ -1,6 +1,8 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
 use crate::config::WorkflowRules;
-use crate::constants::DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES;
+use crate::constants::{
+    DEFAULT_MAX_CUMMULATIVE_STAGED_FILE_SIZE_IN_BYTES, DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES,
+};
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::{Repository, Status, StatusOptions};
 use std::fs;
@@ -12,6 +14,8 @@ pub(crate) struct NoLargeFile {
     description: String,
     level: RuleLevel,
     threshold_bytes: u64,
+    /// Total size threshold for cummulative large files in bytes
+    total_threshold_bytes: u64,
 }
 
 impl Rule for NoLargeFile {
@@ -28,6 +32,7 @@ impl Rule for NoLargeFile {
             description: "Ensure large files are tracked with Git LFS".to_string(),
             level: rule_level,
             threshold_bytes: DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES,
+            total_threshold_bytes: DEFAULT_MAX_CUMMULATIVE_STAGED_FILE_SIZE_IN_BYTES,
         }
     }
 
@@ -68,7 +73,8 @@ impl Rule for NoLargeFile {
             }
         };
 
-        let mut large_files = Vec::new();
+        let mut total_size = 0u64;
+        let mut file_count = 0;
 
         for entry in statuses.iter() {
             let file_path = match entry.path() {
@@ -85,24 +91,21 @@ impl Rule for NoLargeFile {
                 || status.contains(Status::WT_MODIFIED)
             {
                 if let Ok(file_size) = self.get_file_size(file_path) {
-                    if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
-                        large_files.push(format!(
-                            "{} ({:.1} MB)",
-                            file_path,
-                            file_size as f64 / (1024.0 * 1024.0)
-                        ));
-                    }
+                    total_size += file_size;
+                    file_count += 1;
                 }
             }
         }
 
-        if large_files.is_empty() {
-            Ok(RuleOutput::Success)
-        } else {
+        if total_size > self.total_threshold_bytes {
             Ok(RuleOutput::Exception(format!(
-                "Large files detected that should use Git LFS: {}",
-                large_files.join(", ")
+                "Total size of staged/modified files ({:.1} MB across {} files) exceeds threshold ({:.1} MB). Consider using Git LFS or .gitignore for large files.",
+                total_size as f64 / (1024.0 * 1024.0),
+                file_count,
+                self.total_threshold_bytes as f64 / (1024.0 * 1024.0)
             )))
+        } else {
+            Ok(RuleOutput::Success)
         }
     }
 

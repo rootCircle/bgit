@@ -1,3 +1,5 @@
 #! /usr/bin/env bash
 # cargo build --release
 echo "Running pre-git-add hook..."
+
+make precommit-fix

@@ -3,6 +3,8 @@ use crate::events::AtomicEvent;
 use crate::events::git_pull::GitPull;
 use crate::events::git_push::GitPush;
 
+use crate::rules::Rule;
+use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
 use crate::{
     bgit_error::BGitError,
     step::{ActionStep, Step},
@@ -29,7 +31,7 @@ impl ActionStep for PullAndPush {
     fn execute(
         &self,
         _step_config_flags: Option<&StepFlags>,
-        _workflow_rules_config: Option<&WorkflowRules>,
+        workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         // Create GitPull instance with rebase flag enabled
         let git_pull = GitPull::new().with_rebase(true);
@@ -39,6 +41,9 @@ impl ActionStep for PullAndPush {
             Ok(_) => {
                 // Pull successful, now attempt push
                 let mut git_push = GitPush::new();
+
+                git_push.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));
+
                 // Configure push options - you can customize these as needed
                 git_push.set_force(false).set_upstream_flag(false);
 

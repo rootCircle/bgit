@@ -112,57 +112,30 @@ impl IsRepoSizeTooBig {
     fn calculate_repo_size(&self, repo: &Repository) -> Result<u64, String> {
         let mut total_size = 0u64;
 
-        let git_dir = repo.path();
-        total_size += Self::calculate_directory_size(git_dir)
-            .map_err(|e| format!("Failed to calculate .git directory size: {}", e))?;
+        // Get the index to access tracked files
+        let index = repo
+            .index()
+            .map_err(|e| format!("Failed to get repository index: {}", e))?;
 
-        if let Some(workdir) = repo.workdir() {
-            total_size += Self::calculate_working_directory_size(workdir)
-                .map_err(|e| format!("Failed to calculate working directory size: {}", e))?;
-        }
+        // Calculate size of tracked files only
+        for entry in index.iter() {
+            if let Some(workdir) = repo.workdir() {
+                let file_path = workdir.join(
+                    std::str::from_utf8(&entry.path)
+                        .map_err(|e| format!("Invalid UTF-8 in file path: {}", e))?,
+                );
 
-        Ok(total_size)
-    }
-
-    fn calculate_directory_size(dir: &Path) -> Result<u64, std::io::Error> {
-        let mut size = 0u64;
-
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                if path.is_dir() {
-                    size += Self::calculate_directory_size(&path)?;
-                } else {
-                    size += entry.metadata()?.len();
+                if file_path.exists() && file_path.is_file() {
+                    total_size += fs::metadata(&file_path)
+                        .map_err(|e| {
+                            format!("Failed to get metadata for {}: {}", file_path.display(), e)
+                        })?
+                        .len();
                 }
             }
         }
 
-        Ok(size)
-    }
-
-    fn calculate_working_directory_size(workdir: &Path) -> Result<u64, std::io::Error> {
-        let mut size = 0u64;
-
-        for entry in fs::read_dir(workdir)? {
-            let entry = entry?;
-            let path = entry.path();
-            let file_name = entry.file_name();
-
-            if file_name == ".git" {
-                continue;
-            }
-
-            if path.is_dir() {
-                size += Self::calculate_working_directory_size(&path)?;
-            } else {
-                size += entry.metadata()?.len();
-            }
-        }
-
-        Ok(size)
+        Ok(total_size)
     }
 
     fn perform_cleanup(&self, repo: &Repository) -> Result<bool, String> {

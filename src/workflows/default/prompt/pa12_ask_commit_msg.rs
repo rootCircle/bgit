@@ -5,7 +5,6 @@ use crate::rules::Rule;
 use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
 use crate::rules::a12b_no_secret_files_staged::NoSecretFilesStaged;
-use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
 use crate::rules::a16_no_large_file::NoLargeFile;
 use crate::rules::a17_conventional_commit_message::ConventionalCommitMessage;
 use crate::step::ActionStep;
@@ -73,7 +72,6 @@ impl PromptStep for AskHumanCommitMessage {
         git_commit.add_pre_check_rule(Box::new(NoSecretsStaged::new(workflow_rules_config)));
         git_commit.add_pre_check_rule(Box::new(NoSecretFilesStaged::new(workflow_rules_config)));
         git_commit.add_pre_check_rule(Box::new(NoLargeFile::new(workflow_rules_config)));
-        git_commit.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));
         git_commit.add_pre_check_rule(Box::new(GitNameEmailSetup::new(workflow_rules_config)));
 
         git_commit.execute()?;
