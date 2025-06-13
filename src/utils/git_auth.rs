@@ -1,3 +1,5 @@
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::{Input, Password};
 use git2::{
     CertificateCheckStatus, Cred, CredentialType, Error, ErrorClass, ErrorCode, RemoteCallbacks,
 };
@@ -126,8 +128,59 @@ fn try_ssh_key_files(
         }
     }
 }
+fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cred, Error> {
+    debug!("USER_PASS_PLAINTEXT authentication is allowed, prompting for credentials");
 
-fn authenticate_git(
+    // Prompt for username if not provided in URL
+    let username = if let Some(user) = username_from_url {
+        user.to_string()
+    } else {
+        Input::<String>::with_theme(&ColorfulTheme::default())
+            .with_prompt("Enter your username")
+            .interact()
+            .map_err(|e| {
+                Error::new(
+                    ErrorCode::Auth,
+                    ErrorClass::Net,
+                    format!("Failed to read username: {}", e),
+                )
+            })?
+    };
+
+    let token = Password::with_theme(&ColorfulTheme::default())
+        .with_prompt("Enter your personal access token")
+        .interact()
+        .map_err(|e| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                format!("Failed to read token: {}", e),
+            )
+        })?;
+
+    if !username.is_empty() && !token.is_empty() {
+        debug!("Creating credentials with username and token");
+        match Cred::userpass_plaintext(&username, &token) {
+            Ok(cred) => {
+                debug!("Username/token authentication succeeded");
+                Ok(cred)
+            }
+            Err(e) => {
+                debug!("Username/token authentication failed: {}", e);
+                Err(e)
+            }
+        }
+    } else {
+        debug!("Username or token is empty, skipping userpass authentication");
+        Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "Username or token cannot be empty",
+        ))
+    }
+}
+
+fn ssh_authenticate_git(
     url: &str,
     username_from_url: Option<&str>,
     allowed_types: CredentialType,
@@ -207,7 +260,11 @@ pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
         let current_attempt = *count;
         drop(count);
 
-        authenticate_git(url, username_from_url, allowed_types, current_attempt)
+        if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+            try_userpass_authentication(username_from_url)
+        } else {
+            ssh_authenticate_git(url, username_from_url, allowed_types, current_attempt)
+        }
     });
 
     // Set up certificate check callback for HTTPS
