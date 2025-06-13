@@ -1,11 +1,11 @@
 use crate::config::{StepFlags, WorkflowRules};
+use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa13_pull_push::PullAndPush;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{PromptStep, Step, Task::PromptStepTask},
+    step::{PromptStep, Step},
 };
 use dialoguer::{Select, theme::ColorfulTheme};
-
 pub(crate) struct AskPushPull {
     name: String,
 }
@@ -46,6 +46,7 @@ impl PromptStep for AskPushPull {
             })?;
 
         match selection {
+            0 => Ok(Step::Task(PromptStepTask(Box::new(PullAndPush::new())))),
             0 => Ok(Step::Task(PromptStepTask(Box::new(PullAndPush::new())))),
             1 => Ok(Step::Stop),
             _ => Err(Box::new(BGitError::new(

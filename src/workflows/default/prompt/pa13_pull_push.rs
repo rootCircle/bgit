@@ -39,25 +39,17 @@ impl PromptStep for PullAndPush {
 
         git_pull.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
 
-        // Execute pull with rebase
         match git_pull.execute() {
             Ok(_) => {
-                // Pull successful, now attempt push
                 let mut git_push = GitPush::new();
 
                 git_push.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
                 git_push.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));
 
-                // Configure push options - you can customize these as needed
-                git_push
-                    .with_force_with_lease(false)
-                    .with_upstream_flag(false);
+                git_push.set_force(false).set_upstream_flag(false);
 
                 match git_push.execute() {
-                    Ok(_) => {
-                        // Both pull and push successful
-                        Ok(Step::Stop)
-                    }
+                    Ok(_) => Ok(Step::Stop),
                     Err(e) => {
                         // Push failed, return error
                         Err(e)
