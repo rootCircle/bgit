@@ -3,12 +3,12 @@ use std::path::Path;
 use super::AtomicEvent;
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
 use crate::rules::Rule;
-use git2::{Cred, CredentialType, Oid, Repository};
+use git2::{Cred, CredentialType, Repository};
+use log::debug;
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub force_with_lease: bool,
-    pub force_with_lease_ref: Option<String>,
     pub set_upstream: bool,
 }
 
@@ -20,7 +20,6 @@ impl AtomicEvent for GitPush {
         GitPush {
             pre_check_rules: vec![],
             force_with_lease: false,
-            force_with_lease_ref: None,
             set_upstream: false,
         }
     }
@@ -136,18 +135,12 @@ impl AtomicEvent for GitPush {
 }
 
 impl GitPush {
-    pub fn set_force_with_lease(&mut self, force_with_lease: bool) -> &mut Self {
+    pub fn with_force_with_lease(&mut self, force_with_lease: bool) -> &mut Self {
         self.force_with_lease = force_with_lease;
         self
     }
 
-    #[allow(dead_code)]
-    pub fn set_force_with_lease_ref(&mut self, ref_name: Option<String>) -> &mut Self {
-        self.force_with_lease_ref = ref_name;
-        self
-    }
-
-    pub fn set_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
+    pub fn with_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
         self.set_upstream = set_upstream;
         self
     }
@@ -170,12 +163,13 @@ impl GitPush {
             ))
         })?;
 
-        // If a specific ref is provided for force-with-lease, validate against it
-        if let Some(ref expected_ref) = self.force_with_lease_ref {
-            let expected_oid = Oid::from_str(expected_ref).map_err(|e| {
+        // Check if remote branch exists and validate
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
+        {
+            let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Invalid OID for force-with-lease: {}", e),
+                    &format!("Failed to get remote commit: {}", e),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -183,76 +177,9 @@ impl GitPush {
                 ))
             })?;
 
-            // Check if the remote ref matches the expected OID
-            if let Ok(remote_ref) =
-                repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-            {
-                let remote_oid = remote_ref.target().ok_or_else(|| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        "Failed to get remote reference target",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
-
-                if remote_oid != expected_oid {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        &format!(
-                            "Force-with-lease failed: remote ref {} is at {} but expected {}. Local is at {}",
-                            branch_name,
-                            remote_oid,
-                            expected_oid,
-                            local_commit.id()
-                        ),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    )));
-                }
-            } else {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!(
-                        "Remote branch {} does not exist for force-with-lease validation",
-                        branch_name
-                    ),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
-            }
-        } else {
-            // No specific expected ref provided
-            if let Ok(remote_ref) =
-                repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-            {
-                let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get remote commit: {}", e),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
-
-                if local_commit.id() == remote_commit.id() {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        "No changes to push - local and remote are already in sync",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    )));
-                }
+            if local_commit.id() == remote_commit.id() {
+                debug!("Local branch is up to date with remote, no force-with-lease needed");
+                return Ok(());
             }
         }
 
@@ -265,33 +192,30 @@ impl GitPush {
         branch_name: &str,
         base_refspec: &str,
     ) -> Result<String, Box<BGitError>> {
-        if let Some(ref expected_ref) = self.force_with_lease_ref {
-            // Force-with-lease with specific expected value
-            // Format: +refs/heads/branch:refs/heads/branch^{expected_oid}
-            Ok(format!("+{}^{{{}}}", base_refspec, expected_ref))
-        } else {
-            // Force-with-lease without specific expected value
-            // This will use the current remote tracking branch as the expected value
-            if let Ok(remote_ref) =
-                repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-            {
-                let remote_oid = remote_ref.target().ok_or_else(|| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        "Failed to get remote reference target for force-with-lease",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
+        // Force-with-lease using the current remote tracking branch as the expected value
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
+        {
+            let remote_oid = remote_ref.target().ok_or_else(|| {
+                Box::new(BGitError::new(
+                    "BGitError",
+                    "Failed to get remote reference target for force-with-lease",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                ))
+            })?;
 
-                // Use the remote tracking branch's current OID as the expected value
-                Ok(format!("+{}^{{{}}}", base_refspec, remote_oid))
-            } else {
-                // No remote tracking branch exists, allow the push (equivalent to regular force)
-                Ok(format!("+{}", base_refspec))
-            }
+            Ok(format!("+{}^{{{}}}", base_refspec, remote_oid))
+        } else {
+            Err(Box::new(BGitError::new(
+                "BGitError",
+                "Cannot perform force-with-lease: no remote tracking branch found",
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_STEP,
+                self.get_name(),
+                NO_RULE,
+            )))
         }
     }
 
