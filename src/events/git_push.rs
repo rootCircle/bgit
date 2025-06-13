@@ -4,6 +4,7 @@ use super::AtomicEvent;
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
 use crate::rules::Rule;
 use git2::{Cred, CredentialType, Oid, Repository};
+use log::debug;
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -136,18 +137,18 @@ impl AtomicEvent for GitPush {
 }
 
 impl GitPush {
-    pub fn set_force_with_lease(&mut self, force_with_lease: bool) -> &mut Self {
+    pub fn with_force_with_lease(&mut self, force_with_lease: bool) -> &mut Self {
         self.force_with_lease = force_with_lease;
         self
     }
 
     #[allow(dead_code)]
-    pub fn set_force_with_lease_ref(&mut self, ref_name: Option<String>) -> &mut Self {
+    pub fn with_force_with_lease_ref(&mut self, ref_name: Option<String>) -> &mut Self {
         self.force_with_lease_ref = ref_name;
         self
     }
 
-    pub fn set_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
+    pub fn with_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
         self.set_upstream = set_upstream;
         self
     }
@@ -244,14 +245,8 @@ impl GitPush {
                 })?;
 
                 if local_commit.id() == remote_commit.id() {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        "No changes to push - local and remote are already in sync",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    )));
+                    debug!("Local branch is up to date with remote, no force-with-lease needed");
+                    return Ok(());
                 }
             }
         }
@@ -289,8 +284,15 @@ impl GitPush {
                 // Use the remote tracking branch's current OID as the expected value
                 Ok(format!("+{}^{{{}}}", base_refspec, remote_oid))
             } else {
-                // No remote tracking branch exists, allow the push (equivalent to regular force)
-                Ok(format!("+{}", base_refspec))
+                // No remote tracking branch exists
+                Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "Cannot perform force-with-lease: no remote tracking branch found",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )))
             }
         }
     }
