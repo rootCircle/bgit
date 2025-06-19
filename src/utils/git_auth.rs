@@ -4,19 +4,191 @@ use git2::{
     CertificateCheckStatus, Cred, CredentialType, Error, ErrorClass, ErrorCode, RemoteCallbacks,
 };
 use log::debug;
+use std::collections::HashMap;
 use std::path::Path;
+use std::process::Command;
 use std::sync::{Arc, Mutex};
+
+fn parse_ssh_agent_output(output: &str) -> HashMap<String, String> {
+    let mut env_vars = HashMap::new();
+
+    for line in output.lines() {
+        if line.contains('=') && (line.contains("SSH_AUTH_SOCK") || line.contains("SSH_AGENT_PID"))
+        {
+            if let Some(var_part) = line.split(';').next() {
+                if let Some((key, value)) = var_part.split_once('=') {
+                    env_vars.insert(key.to_string(), value.to_string());
+                }
+            }
+        }
+    }
+
+    env_vars
+}
+
+fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
+    debug!("SSH_AUTH_SOCK not set, spawning ssh-agent");
+
+    let output = Command::new("ssh-agent").arg("-s").output().map_err(|e| {
+        Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            format!("Failed to spawn ssh-agent: {}", e),
+        )
+    })?;
+
+    if !output.status.success() {
+        return Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            format!("ssh-agent failed with status: {}", output.status),
+        ));
+    }
+
+    let agent_output = String::from_utf8_lossy(&output.stdout);
+    debug!("ssh-agent output: {}", agent_output);
+
+    let env_vars = parse_ssh_agent_output(&agent_output);
+
+    for (key, value) in &env_vars {
+        unsafe {
+            std::env::set_var(key, value);
+        }
+        debug!("Set environment variable: {}={}", key, value);
+    }
+
+    if env_vars.get("SSH_AUTH_SOCK").is_none() {
+        return Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "Failed to parse SSH_AUTH_SOCK from ssh-agent output",
+        ));
+    }
+
+    add_all_ssh_keys()?;
+
+    Ok(())
+}
+
+fn add_all_ssh_keys() -> Result<(), Error> {
+    debug!("Adding all SSH keys from .ssh folder to ssh-agent");
+
+    let home_dir = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+
+    let ssh_dir = Path::new(&home_dir).join(".ssh");
+
+    if !ssh_dir.exists() {
+        debug!("SSH directory {:?} does not exist", ssh_dir);
+        return Ok(()); // Not an error, just no keys to add
+    }
+
+    let key_files = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
+
+    let mut added_count = 0;
+
+    for key_name in &key_files {
+        let key_path = ssh_dir.join(key_name);
+
+        if key_path.exists() {
+            debug!("Found SSH key: {:?}", key_path);
+
+            let output = Command::new("ssh-add")
+                .arg(&key_path)
+                .env(
+                    "SSH_AUTH_SOCK",
+                    std::env::var("SSH_AUTH_SOCK").unwrap_or_default(),
+                )
+                .output();
+
+            match output {
+                Ok(output) => {
+                    if output.status.success() {
+                        debug!("Successfully added key: {}", key_name);
+                        added_count += 1;
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        debug!("Failed to add key {}: {}", key_name, stderr);
+
+                        // If it's a passphrase-protected key, we might need to handle it differently
+                        if stderr.contains("Bad passphrase")
+                            || stderr.contains("incorrect passphrase")
+                        {
+                            debug!(
+                                "Key {} appears to be passphrase-protected, skipping automatic addition",
+                                key_name
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("Error running ssh-add for {}: {}", key_name, e);
+                }
+            }
+        } else {
+            debug!("SSH key not found: {:?}", key_path);
+        }
+    }
+
+    debug!("Added {} SSH keys to ssh-agent", added_count);
+
+    // Don't fail if no keys were added - they might be passphrase-protected
+    // or the user might authenticate differently
+    if added_count == 0 {
+        debug!("No SSH keys were automatically added, but this might be expected");
+    }
+
+    Ok(())
+}
+
+fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
+    debug!("Trying SSH key files directly for user: {}", username);
+
+    let home_dir = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+
+    let ssh_dir = Path::new(&home_dir).join(".ssh");
+    let key_files = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
+
+    for key_name in &key_files {
+        let private_key_path = ssh_dir.join(key_name);
+        let public_key_path = ssh_dir.join(format!("{}.pub", key_name));
+
+        if private_key_path.exists() && public_key_path.exists() {
+            debug!("Trying SSH key pair: {} / {}.pub", key_name, key_name);
+
+            match Cred::ssh_key(
+                username,
+                Some(&public_key_path),
+                &private_key_path,
+                None, // No passphrase for now
+            ) {
+                Ok(cred) => {
+                    debug!("SSH key authentication succeeded with {}", key_name);
+                    return Ok(cred);
+                }
+                Err(e) => {
+                    debug!("SSH key authentication failed with {}: {}", key_name, e);
+                }
+            }
+        }
+    }
+
+    Err(Error::new(
+        ErrorCode::Auth,
+        ErrorClass::Net,
+        "No valid SSH key pairs found or all failed authentication",
+    ))
+}
 
 fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
     debug!("Attempting SSH agent authentication for user: {}", username);
 
     if std::env::var("SSH_AUTH_SOCK").is_err() {
-        debug!("SSH_AUTH_SOCK not set, skipping ssh_key_from_agent");
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            "SSH_AUTH_SOCK not available",
-        ));
+        debug!("SSH_AUTH_SOCK not set, attempting to spawn ssh-agent and add keys");
+        spawn_ssh_agent_and_add_keys()?;
     }
 
     match Cred::ssh_key_from_agent(username) {
@@ -26,108 +198,14 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
         }
         Err(e) => {
             debug!("SSH agent authentication failed: {}", e);
-            Err(e)
+
+            // Fallback to trying SSH key files directly
+            debug!("Falling back to direct SSH key file authentication");
+            try_ssh_key_files_directly(username)
         }
     }
 }
 
-fn try_ssh_key_files(
-    username: &str,
-    key_index: usize,
-    use_public_key: bool,
-) -> Result<Cred, Error> {
-    debug!(
-        "Attempting SSH key file authentication for user: {}, key_index: {}, use_public_key: {}",
-        username, key_index, use_public_key
-    );
-
-    let home_dir = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| ".".to_string());
-    debug!("Home directory resolved to: {}", home_dir);
-
-    let ssh_dir = Path::new(&home_dir).join(".ssh");
-    debug!("Checking .ssh directory at: {:?}", ssh_dir);
-
-    // Common SSH key file names in order of preference
-    let key_files = [
-        ("id_ed25519", "id_ed25519.pub"),
-        ("id_rsa", "id_rsa.pub"),
-        ("id_ecdsa", "id_ecdsa.pub"),
-        ("id_dsa", "id_dsa.pub"),
-    ];
-
-    if key_index >= key_files.len() {
-        debug!("Key index {} out of range", key_index);
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            "All SSH key files exhausted",
-        ));
-    }
-
-    let (private_name, public_name) = key_files[key_index];
-    let private_key = ssh_dir.join(private_name);
-    let public_key = ssh_dir.join(public_name);
-
-    if !private_key.exists() {
-        debug!("Private key not found: {:?}", private_key);
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            format!("Private key not found: {}", private_name),
-        ));
-    }
-
-    debug!("Found private key: {:?}", private_key);
-
-    if use_public_key {
-        if public_key.exists() {
-            debug!("Found public key: {:?}, trying with public key", public_key);
-            match Cred::ssh_key(username, Some(&public_key), &private_key, None) {
-                Ok(cred) => {
-                    debug!(
-                        "SSH key auth with public key succeeded for {}",
-                        private_name
-                    );
-                    Ok(cred)
-                }
-                Err(e) => {
-                    debug!("SSH key with public key failed for {}: {}", private_name, e);
-                    Err(e)
-                }
-            }
-        } else {
-            debug!(
-                "Public key not found for {}, skipping this attempt",
-                private_name
-            );
-            Err(Error::new(
-                ErrorCode::Auth,
-                ErrorClass::Net,
-                format!("Public key not found for {}", private_name),
-            ))
-        }
-    } else {
-        debug!("Trying SSH key without public key for {}", private_name);
-        match Cred::ssh_key(username, None, &private_key, None) {
-            Ok(cred) => {
-                debug!(
-                    "SSH key auth without public key succeeded for {}",
-                    private_name
-                );
-                Ok(cred)
-            }
-            Err(e) => {
-                debug!(
-                    "SSH key without public key failed for {}: {}",
-                    private_name, e
-                );
-                Err(e)
-            }
-        }
-    }
-}
 fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cred, Error> {
     debug!("USER_PASS_PLAINTEXT authentication is allowed, prompting for credentials");
 
@@ -194,7 +272,7 @@ fn ssh_authenticate_git(
     debug!("Allowed credential types: {:?}", allowed_types);
 
     // Prevent infinite loops
-    if attempt_count > 20 {
+    if attempt_count > 3 {
         debug!(
             "Too many authentication attempts ({}), failing to prevent infinite loop",
             attempt_count
@@ -209,28 +287,9 @@ fn ssh_authenticate_git(
     // Try SSH key authentication if allowed
     if allowed_types.contains(CredentialType::SSH_KEY) {
         if let Some(username) = username_from_url {
-            debug!("SSH key authentication is allowed, trying SSH methods");
+            debug!("SSH key authentication is allowed, trying SSH agent");
 
-            // Try SSH agent first (only on first attempt)
-            if attempt_count == 1 {
-                if let Ok(cred) = try_ssh_agent_auth(username) {
-                    return Ok(cred);
-                }
-                // If SSH agent fails, fall through to try SSH key files on same attempt
-            }
-
-            // Try SSH key files with progression
-            // Attempt 1+: Start with id_ed25519 if SSH agent failed
-            // Attempt 1: id_ed25519 with public key
-            // Attempt 2: id_ed25519 without public key
-            // Attempt 3: id_rsa with public key
-            // Attempt 4: id_rsa without public key
-            // etc.
-            let key_attempt = attempt_count - 1;
-            let key_index = key_attempt / 2;
-            let use_public_key = key_attempt % 2 == 0;
-
-            if let Ok(cred) = try_ssh_key_files(username, key_index, use_public_key) {
+            if let Ok(cred) = try_ssh_agent_auth(username) {
                 return Ok(cred);
             }
         } else {
@@ -248,6 +307,7 @@ fn ssh_authenticate_git(
         format!("Authentication failed - attempt {}", attempt_count),
     ))
 }
+
 pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
     let mut callbacks = RemoteCallbacks::new();
 
