@@ -3,6 +3,7 @@ use crate::bgit_error::BGitError;
 use crate::rules::Rule;
 use crate::utils::git_auth::setup_auth_callbacks;
 use git2::Repository;
+use log::debug;
 use std::path::Path;
 
 pub struct GitPush {
