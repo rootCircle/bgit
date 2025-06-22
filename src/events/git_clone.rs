@@ -51,7 +51,7 @@ impl AtomicEvent for GitClone {
         }
         let url = &self.url;
         let repo_name = match url.split("/").last() {
-            Some(repo_name) => repo_name,
+            Some(repo_name) => repo_name.strip_suffix(".git").unwrap_or(repo_name),
             None => {
                 return Err(Box::new(BGitError::new(
                     "BGitError",
@@ -96,7 +96,7 @@ impl GitClone {
 
     fn update_cwd_path(&self) -> Result<(), Box<BGitError>> {
         let repo_name = match self.url.split("/").last() {
-            Some(repo_name) => repo_name,
+            Some(repo_name) => repo_name.strip_suffix(".git").unwrap_or(repo_name),
             None => {
                 return Err(Box::new(BGitError::new(
                     "BGitError",
