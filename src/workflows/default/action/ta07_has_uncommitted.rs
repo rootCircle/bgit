@@ -31,11 +31,9 @@ impl ActionStep for HasUncommitted {
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
-        // Check for both unstaged/new files and staged files
-        let has_unstaged = git_status::has_unstaged_or_new_files()?;
         let has_staged = git_status::has_staged_files()?;
 
-        if has_unstaged || has_staged {
+        if has_staged {
             Ok(Step::Task(ActionStepTask(Box::new(IsBranchMain::new()))))
         } else {
             println!("No uncommitted changes found.");
