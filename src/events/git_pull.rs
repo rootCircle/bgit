@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use super::AtomicEvent;
-use crate::bgit_error::BGitError;
+use crate::auth::git_auth::setup_auth_callbacks;
+use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
 use crate::rules::Rule;
-use crate::utils::git_auth::setup_auth_callbacks;
 use git2::Repository;
 
 pub struct GitPull {
