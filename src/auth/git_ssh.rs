@@ -1,30 +1,9 @@
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Confirm, Input, Password};
-use git2::{
-    CertificateCheckStatus, Cred, CredentialType, Error, ErrorClass, ErrorCode, RemoteCallbacks,
-};
+use git2::{Cred, CredentialType, Error, ErrorClass, ErrorCode};
 use log::debug;
-use std::collections::HashMap;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
 
-fn parse_ssh_agent_output(output: &str) -> HashMap<String, String> {
-    let mut env_vars = HashMap::new();
-
-    for line in output.lines() {
-        if line.contains('=') && (line.contains("SSH_AUTH_SOCK") || line.contains("SSH_AGENT_PID"))
-        {
-            if let Some(var_part) = line.split(';').next() {
-                if let Some((key, value)) = var_part.split_once('=') {
-                    env_vars.insert(key.to_string(), value.to_string());
-                }
-            }
-        }
-    }
-
-    env_vars
-}
+use crate::auth::ssh_utils::{add_key_interactive, parse_ssh_agent_output};
 
 fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
     debug!("SSH_AUTH_SOCK not set, spawning ssh-agent");
@@ -156,62 +135,6 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 
     Ok(())
 }
-fn add_key_interactive(key_path: &Path, key_name: &str) -> Result<bool, Error> {
-    debug!("Trying interactive ssh-add for key: {}", key_name);
-
-    // Ask user if they want to add this key interactively
-    let should_add = Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt(format!(
-            "Add SSH key '{}' to ssh-agent? (you may be prompted for passphrase)",
-            key_name
-        ))
-        .default(true)
-        .interact()
-        .map_err(|e| {
-            Error::new(
-                ErrorCode::Auth,
-                ErrorClass::Net,
-                format!("Failed to get user confirmation: {}", e),
-            )
-        })?;
-
-    if !should_add {
-        debug!("User chose not to add key: {}", key_name);
-        return Ok(false);
-    }
-
-    println!("Adding SSH key: {}", key_name);
-    println!("If the key is passphrase-protected, you will be prompted to enter it.");
-
-    // Use interactive ssh-add - this will prompt the user directly in the terminal
-    let status = Command::new("ssh-add")
-        .arg(key_path)
-        .env(
-            "SSH_AUTH_SOCK",
-            std::env::var("SSH_AUTH_SOCK").unwrap_or_default(),
-        )
-        .stdin(Stdio::inherit()) // Allow user to input passphrase directly
-        .stdout(Stdio::inherit()) // Show ssh-add output to user
-        .stderr(Stdio::inherit()) // Show ssh-add errors to user
-        .status() // Use status() instead of output() to allow real-time interaction
-        .map_err(|e| {
-            Error::new(
-                ErrorCode::Auth,
-                ErrorClass::Net,
-                format!("Failed to spawn ssh-add: {}", e),
-            )
-        })?;
-
-    if status.success() {
-        debug!("Successfully added key: {}", key_name);
-        println!("✓ SSH key '{}' added successfully!", key_name);
-        Ok(true)
-    } else {
-        debug!("Interactive ssh-add failed for key: {}", key_name);
-        println!("✗ Failed to add SSH key '{}'", key_name);
-        Ok(false)
-    }
-}
 
 fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
     debug!("Trying SSH key files directly for user: {}", username);
@@ -277,59 +200,7 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
     }
 }
 
-fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cred, Error> {
-    debug!("USER_PASS_PLAINTEXT authentication is allowed, prompting for credentials");
-
-    // Prompt for username if not provided in URL
-    let username = if let Some(user) = username_from_url {
-        user.to_string()
-    } else {
-        Input::<String>::with_theme(&ColorfulTheme::default())
-            .with_prompt("Enter your username")
-            .interact()
-            .map_err(|e| {
-                Error::new(
-                    ErrorCode::Auth,
-                    ErrorClass::Net,
-                    format!("Failed to read username: {}", e),
-                )
-            })?
-    };
-
-    let token = Password::with_theme(&ColorfulTheme::default())
-        .with_prompt("Enter your personal access token")
-        .interact()
-        .map_err(|e| {
-            Error::new(
-                ErrorCode::Auth,
-                ErrorClass::Net,
-                format!("Failed to read token: {}", e),
-            )
-        })?;
-
-    if !username.is_empty() && !token.is_empty() {
-        debug!("Creating credentials with username and token");
-        match Cred::userpass_plaintext(&username, &token) {
-            Ok(cred) => {
-                debug!("Username/token authentication succeeded");
-                Ok(cred)
-            }
-            Err(e) => {
-                debug!("Username/token authentication failed: {}", e);
-                Err(e)
-            }
-        }
-    } else {
-        debug!("Username or token is empty, skipping userpass authentication");
-        Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            "Username or token cannot be empty",
-        ))
-    }
-}
-
-fn ssh_authenticate_git(
+pub fn ssh_authenticate_git(
     url: &str,
     username_from_url: Option<&str>,
     allowed_types: CredentialType,
@@ -377,32 +248,4 @@ fn ssh_authenticate_git(
         ErrorClass::Net,
         format!("Authentication failed - attempt {}", attempt_count),
     ))
-}
-
-pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
-    let mut callbacks = RemoteCallbacks::new();
-
-    // Track attempt count across callback invocations
-    let attempt_count: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
-
-    callbacks.credentials(move |url, username_from_url, allowed_types| {
-        let mut count = attempt_count.lock().unwrap();
-        *count += 1;
-        let current_attempt = *count;
-        drop(count);
-
-        if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-            try_userpass_authentication(username_from_url)
-        } else {
-            ssh_authenticate_git(url, username_from_url, allowed_types, current_attempt)
-        }
-    });
-
-    // Set up certificate check callback for HTTPS
-    callbacks.certificate_check(|_cert, _host| {
-        debug!("Skipping certificate verification (INSECURE)");
-        Ok(CertificateCheckStatus::CertificateOk)
-    });
-
-    callbacks
 }
