@@ -5,6 +5,91 @@ use std::process::{Command, Stdio};
 
 use crate::auth::ssh_utils::{add_key_interactive, parse_ssh_agent_output};
 
+pub fn ssh_authenticate_git(
+    url: &str,
+    username_from_url: Option<&str>,
+    allowed_types: CredentialType,
+    attempt_count: usize,
+) -> Result<Cred, Error> {
+    debug!(
+        "Git authentication attempt #{} for URL: {}",
+        attempt_count, url
+    );
+    debug!("Username from URL: {:?}", username_from_url);
+    debug!("Allowed credential types: {:?}", allowed_types);
+
+    // Prevent infinite loops
+    if attempt_count > 3 {
+        debug!(
+            "Too many authentication attempts ({}), failing to prevent infinite loop",
+            attempt_count
+        );
+        return Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "Too many authentication attempts",
+        ));
+    }
+
+    if allowed_types.contains(CredentialType::SSH_KEY) {
+        if let Some(username) = username_from_url {
+            debug!("SSH key authentication is allowed, trying SSH agent");
+
+            // handling the case where ssh-agent is running but empty
+            if attempt_count == 2 {
+                debug!("Second attempt: trying to add SSH keys to agent before authentication");
+                if std::env::var("SSH_AUTH_SOCK").is_ok() {
+                    if let Err(e) = add_all_ssh_keys() {
+                        debug!("Failed to add keys to ssh-agent on second attempt: {}", e);
+                    } else {
+                        debug!("Keys added to ssh-agent, proceeding with authentication");
+                    }
+                }
+            }
+
+            if let Ok(cred) = try_ssh_agent_auth(username) {
+                return Ok(cred);
+            }
+        } else {
+            debug!("No username provided for SSH authentication");
+        }
+    }
+
+    debug!(
+        "All authentication methods failed for attempt {}",
+        attempt_count
+    );
+    Err(Error::new(
+        ErrorCode::Auth,
+        ErrorClass::Net,
+        format!("Authentication failed - attempt {}", attempt_count),
+    ))
+}
+
+fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
+    debug!("Attempting SSH agent authentication for user: {}", username);
+
+    if std::env::var("SSH_AUTH_SOCK").is_err() {
+        debug!("SSH_AUTH_SOCK not set, attempting to spawn ssh-agent and add keys");
+        spawn_ssh_agent_and_add_keys()?;
+    }
+
+    match Cred::ssh_key_from_agent(username) {
+        Ok(cred) => {
+            debug!("SSH agent authentication succeeded");
+
+            Ok(cred)
+        }
+        Err(e) => {
+            debug!("SSH agent authentication failed: {}", e);
+
+            // Fallback to trying SSH key files directly
+            debug!("Falling back to direct SSH key file authentication");
+            try_ssh_key_files_directly(username)
+        }
+    }
+}
+
 fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
     debug!("SSH_AUTH_SOCK not set, spawning ssh-agent");
 
@@ -174,78 +259,5 @@ fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
         ErrorCode::Auth,
         ErrorClass::Net,
         "No valid SSH key pairs found or all failed authentication",
-    ))
-}
-
-fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
-    debug!("Attempting SSH agent authentication for user: {}", username);
-
-    if std::env::var("SSH_AUTH_SOCK").is_err() {
-        debug!("SSH_AUTH_SOCK not set, attempting to spawn ssh-agent and add keys");
-        spawn_ssh_agent_and_add_keys()?;
-    }
-
-    match Cred::ssh_key_from_agent(username) {
-        Ok(cred) => {
-            debug!("SSH agent authentication succeeded");
-            Ok(cred)
-        }
-        Err(e) => {
-            debug!("SSH agent authentication failed: {}", e);
-
-            // Fallback to trying SSH key files directly
-            debug!("Falling back to direct SSH key file authentication");
-            try_ssh_key_files_directly(username)
-        }
-    }
-}
-
-pub fn ssh_authenticate_git(
-    url: &str,
-    username_from_url: Option<&str>,
-    allowed_types: CredentialType,
-    attempt_count: usize,
-) -> Result<Cred, Error> {
-    debug!(
-        "Git authentication attempt #{} for URL: {}",
-        attempt_count, url
-    );
-    debug!("Username from URL: {:?}", username_from_url);
-    debug!("Allowed credential types: {:?}", allowed_types);
-
-    // Prevent infinite loops
-    if attempt_count > 3 {
-        debug!(
-            "Too many authentication attempts ({}), failing to prevent infinite loop",
-            attempt_count
-        );
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            "Too many authentication attempts",
-        ));
-    }
-
-    // Try SSH key authentication if allowed
-    if allowed_types.contains(CredentialType::SSH_KEY) {
-        if let Some(username) = username_from_url {
-            debug!("SSH key authentication is allowed, trying SSH agent");
-
-            if let Ok(cred) = try_ssh_agent_auth(username) {
-                return Ok(cred);
-            }
-        } else {
-            debug!("No username provided for SSH authentication");
-        }
-    }
-
-    debug!(
-        "All authentication methods failed for attempt {}",
-        attempt_count
-    );
-    Err(Error::new(
-        ErrorCode::Auth,
-        ErrorClass::Net,
-        format!("Authentication failed - attempt {}", attempt_count),
     ))
 }
