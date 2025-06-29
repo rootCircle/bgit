@@ -1,4 +1,5 @@
 pub(crate) mod check;
+pub(crate) mod create_creds;
 pub(crate) mod default;
 pub(crate) mod init;
 pub(crate) mod log;
@@ -35,6 +36,8 @@ pub enum Commands {
 
     /// Do maintenance tasks
     Check,
+    #[command(name = "create-creds")]
+    CreateCreds,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {

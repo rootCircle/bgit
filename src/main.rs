@@ -1,10 +1,12 @@
 use crate::cmd::check::check;
+use crate::cmd::create_creds::create_creds;
 use crate::cmd::default::default_cmd_workflow;
 use crate::cmd::init::init;
 use crate::cmd::log::log;
 use crate::cmd::{Cli, Commands};
 use crate::config::BGitConfig;
 
+mod auth;
 mod bgit_error;
 mod cmd;
 mod config;
@@ -42,6 +44,7 @@ fn main() {
             Some(Commands::Log) => log(bgit_config),
             Some(Commands::Init) => init(bgit_config),
             Some(Commands::Check) => check(bgit_config),
+            Some(Commands::CreateCreds) => create_creds(bgit_config),
             None => default_cmd_workflow(bgit_config),
         }
     }
