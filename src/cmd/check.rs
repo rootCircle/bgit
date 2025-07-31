@@ -1,5 +1,5 @@
 use crate::config::BGitConfig;
 
 pub(crate) fn check(_bgit_config: BGitConfig) {
-    println!("Here is check!");
+    unimplemented!("So, sorry! But `bgit check` hasn't been implemented yet!");
 }

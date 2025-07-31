@@ -1,5 +1,5 @@
 use crate::config::BGitConfig;
 
 pub(crate) fn log(_bgit_config: BGitConfig) {
-    println!("Here is log!");
+    unimplemented!("So, sorry! But `bgit log` hasn't been implemented yet!");
 }
