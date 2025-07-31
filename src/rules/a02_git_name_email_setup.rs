@@ -42,8 +42,7 @@ impl Rule for GitNameEmailSetup {
             Ok(config) => config,
             Err(e) => {
                 return Ok(RuleOutput::Exception(format!(
-                    "Failed to open Git config: {}",
-                    e
+                    "Failed to open Git config: {e}"
                 )));
             }
         };

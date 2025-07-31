@@ -65,7 +65,7 @@ impl AtomicEvent for GitLog {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -93,7 +93,7 @@ impl GitLog {
         let config = repo.config().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository config: {}", e),
+                &format!("Failed to get repository config: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -104,7 +104,7 @@ impl GitLog {
         let current_user_name = config.get_string("user.name").map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get current user name: {}", e),
+                &format!("Failed to get current user name: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -115,7 +115,7 @@ impl GitLog {
         let current_user_email = config.get_string("user.email").map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get current user email: {}", e),
+                &format!("Failed to get current user email: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -130,7 +130,7 @@ impl GitLog {
         let mut revwalk = repo.revwalk().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to create revwalk: {}", e),
+                &format!("Failed to create revwalk: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -141,7 +141,7 @@ impl GitLog {
         revwalk.push_head().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to push HEAD to revwalk: {}", e),
+                &format!("Failed to push HEAD to revwalk: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -153,7 +153,7 @@ impl GitLog {
             let oid = oid_result.map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get commit OID: {}", e),
+                    &format!("Failed to get commit OID: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -164,7 +164,7 @@ impl GitLog {
             let commit = repo.find_commit(oid).map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to find commit: {}", e),
+                    &format!("Failed to find commit: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,

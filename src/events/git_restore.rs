@@ -80,7 +80,7 @@ impl GitRestore {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -92,7 +92,7 @@ impl GitRestore {
         let mut index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository index: {}", e),
+                &format!("Failed to get repository index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -104,7 +104,7 @@ impl GitRestore {
         let index_tree_oid = index.write_tree().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to write index tree: {}", e),
+                &format!("Failed to write index tree: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -116,7 +116,7 @@ impl GitRestore {
         let index_tree = repo.find_tree(index_tree_oid).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to find index tree: {}", e),
+                &format!("Failed to find index tree: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -135,7 +135,7 @@ impl GitRestore {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to checkout index tree to working directory: {}", e),
+                    &format!("Failed to checkout index tree to working directory: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -152,7 +152,7 @@ impl GitRestore {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -164,7 +164,7 @@ impl GitRestore {
         let head = repo.head().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD: {}", e),
+                &format!("Failed to get HEAD: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -175,7 +175,7 @@ impl GitRestore {
         let head_commit = head.peel_to_commit().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD commit: {}", e),
+                &format!("Failed to get HEAD commit: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -188,7 +188,7 @@ impl GitRestore {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to unstage files: {}", e),
+                    &format!("Failed to unstage files: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,

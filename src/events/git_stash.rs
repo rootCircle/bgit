@@ -65,7 +65,7 @@ impl AtomicEvent for GitStash {
         let mut repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -100,7 +100,7 @@ impl GitStash {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to pop stash at index {}: {}", index, e),
+                    &format!("Failed to pop stash at index {index}: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -129,7 +129,7 @@ impl GitStash {
         repo.stash_foreach(&mut callback).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to check stash existence: {}", e),
+                &format!("Failed to check stash existence: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -140,7 +140,7 @@ impl GitStash {
         if !stash_exists {
             return Err(Box::new(BGitError::new(
                 "BGitError",
-                &format!("Stash at index {} does not exist", index),
+                &format!("Stash at index {index} does not exist"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,

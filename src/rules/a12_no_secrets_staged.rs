@@ -56,8 +56,7 @@ impl Rule for NoSecretsStaged {
 
         match output {
             Err(e) => Ok(RuleOutput::Exception(format!(
-                "Failed to execute git diff --staged: {}",
-                e
+                "Failed to execute git diff --staged: {e}"
             ))),
             Ok(output_response) => {
                 if !output_response.status.success() {

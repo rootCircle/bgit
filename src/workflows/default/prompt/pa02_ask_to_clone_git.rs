@@ -68,7 +68,7 @@ impl PromptStep for CloneGitRepo {
         git_clone.set_url(&clone_link);
 
         // Print information about the clone operation
-        println!("Cloning repository from {}...", clone_link);
+        println!("Cloning repository from {clone_link}...");
         println!("Destination: Current directory");
         if shallow_clone {
             println!("Performing shallow clone (limited history)");

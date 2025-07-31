@@ -46,7 +46,7 @@ impl Rule for IsRepoSizeTooBig {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to discover repository: {}", e),
+                &format!("Failed to discover repository: {e}"),
                 BGitErrorWorkflowType::Rules,
                 NO_STEP,
                 self.get_name(),
@@ -68,8 +68,7 @@ impl Rule for IsRepoSizeTooBig {
                 }
             }
             Err(e) => Ok(RuleOutput::Exception(format!(
-                "Failed to calculate repository size: {}",
-                e
+                "Failed to calculate repository size: {e}"
             ))),
         }
     }
@@ -80,7 +79,7 @@ impl Rule for IsRepoSizeTooBig {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to discover repository: {}", e),
+                &format!("Failed to discover repository: {e}"),
                 BGitErrorWorkflowType::Rules,
                 NO_STEP,
                 self.get_name(),
@@ -101,7 +100,7 @@ impl Rule for IsRepoSizeTooBig {
                 Ok(success)
             }
             Err(e) => {
-                println!("Cleanup failed: {}", e);
+                println!("Cleanup failed: {e}");
                 Ok(false)
             }
         }
@@ -115,14 +114,14 @@ impl IsRepoSizeTooBig {
         // Get the index to access tracked files
         let index = repo
             .index()
-            .map_err(|e| format!("Failed to get repository index: {}", e))?;
+            .map_err(|e| format!("Failed to get repository index: {e}"))?;
 
         // Calculate size of tracked files only
         for entry in index.iter() {
             if let Some(workdir) = repo.workdir() {
                 let file_path = workdir.join(
                     std::str::from_utf8(&entry.path)
-                        .map_err(|e| format!("Invalid UTF-8 in file path: {}", e))?,
+                        .map_err(|e| format!("Invalid UTF-8 in file path: {e}"))?,
                 );
 
                 if file_path.exists() && file_path.is_file() {
@@ -142,7 +141,7 @@ impl IsRepoSizeTooBig {
         // Clean up loose objects by checking if they're referenced
         let odb = repo
             .odb()
-            .map_err(|e| format!("Failed to access object database: {}", e))?;
+            .map_err(|e| format!("Failed to access object database: {e}"))?;
 
         let mut cleanup_performed = false;
 
@@ -169,7 +168,7 @@ impl IsRepoSizeTooBig {
 
             true
         })
-        .map_err(|e| format!("Failed to iterate objects: {}", e))?;
+        .map_err(|e| format!("Failed to iterate objects: {e}"))?;
 
         // Note: Actual deletion of unreferenced objects would require low-level operations
         // that git2 doesn't directly support. In practice, you might still need to call

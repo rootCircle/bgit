@@ -72,7 +72,7 @@ impl GitCommit {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -84,7 +84,7 @@ impl GitCommit {
         let signature = repo.signature().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get signature: {}", e),
+                &format!("Failed to get signature: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -96,7 +96,7 @@ impl GitCommit {
         let head = repo.head().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD reference: {}", e),
+                &format!("Failed to get HEAD reference: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -107,7 +107,7 @@ impl GitCommit {
         let parent_commit = head.peel_to_commit().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD commit: {}", e),
+                &format!("Failed to get HEAD commit: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -119,7 +119,7 @@ impl GitCommit {
         let mut index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository index: {}", e),
+                &format!("Failed to get repository index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -130,7 +130,7 @@ impl GitCommit {
         let tree_id = index.write_tree().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to write tree: {}", e),
+                &format!("Failed to write tree: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -141,7 +141,7 @@ impl GitCommit {
         let tree = repo.find_tree(tree_id).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to find tree: {}", e),
+                &format!("Failed to find tree: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -161,7 +161,7 @@ impl GitCommit {
         .map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to create commit: {}", e),
+                &format!("Failed to create commit: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,

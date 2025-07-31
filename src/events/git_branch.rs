@@ -88,7 +88,7 @@ impl AtomicEvent for GitBranch {
         let mut repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -117,7 +117,7 @@ impl GitBranch {
         let head = repo.head().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD: {}", e),
+                &format!("Failed to get HEAD: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -170,7 +170,7 @@ impl GitBranch {
         {
             return Err(Box::new(BGitError::new(
                 "BGitError",
-                &format!("Target branch '{}' already exists", target_branch_name),
+                &format!("Target branch '{target_branch_name}' already exists"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -203,7 +203,7 @@ impl GitBranch {
                 let head = repo.head().map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to get HEAD: {}", e),
+                        &format!("Failed to get HEAD: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -214,7 +214,7 @@ impl GitBranch {
                 head.peel_to_commit().map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to get target commit: {}", e),
+                        &format!("Failed to get target commit: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -227,7 +227,7 @@ impl GitBranch {
                 .map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to create branch '{}': {}", target_branch_name, e),
+                        &format!("Failed to create branch '{target_branch_name}': {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -240,10 +240,7 @@ impl GitBranch {
                 .map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!(
-                            "Failed to find newly created branch '{}': {}",
-                            target_branch_name, e
-                        ),
+                        &format!("Failed to find newly created branch '{target_branch_name}': {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -259,7 +256,7 @@ impl GitBranch {
         repo.set_head(&branch_ref_name).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to set HEAD to new branch: {}", e),
+                &format!("Failed to set HEAD to new branch: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -271,7 +268,7 @@ impl GitBranch {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to checkout new branch: {}", e),
+                    &format!("Failed to checkout new branch: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -288,7 +285,7 @@ impl GitBranch {
         repo.stash_pop(0, Some(&mut apply_options)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to apply stashed changes: {}", e),
+                &format!("Failed to apply stashed changes: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -307,7 +304,7 @@ impl GitBranch {
         let signature = repo.signature().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get signature: {}", e),
+                &format!("Failed to get signature: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -320,7 +317,7 @@ impl GitBranch {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to save stash: {}", e),
+                    &format!("Failed to save stash: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -339,7 +336,7 @@ impl GitBranch {
         let statuses = repo.statuses(Some(&mut status_options)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository status: {}", e),
+                &format!("Failed to get repository status: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,

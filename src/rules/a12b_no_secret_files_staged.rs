@@ -47,8 +47,7 @@ impl Rule for NoSecretFilesStaged {
             Ok(repo) => repo,
             Err(e) => {
                 return Ok(RuleOutput::Exception(format!(
-                    "Failed to open repository: {}",
-                    e
+                    "Failed to open repository: {e}"
                 )));
             }
         };
@@ -61,8 +60,7 @@ impl Rule for NoSecretFilesStaged {
             Ok(statuses) => statuses,
             Err(e) => {
                 return Ok(RuleOutput::Exception(format!(
-                    "Failed to get repository status: {}",
-                    e
+                    "Failed to get repository status: {e}"
                 )));
             }
         };
@@ -162,12 +160,12 @@ impl Rule for NoSecretFilesStaged {
             Ok(_) => {
                 info!("Added the following files to .gitignore:");
                 for file in &files_to_ignore {
-                    info!("  {}", file);
+                    info!("  {file}");
                 }
 
                 // Unstage files if they were staged
                 if let Err(e) = self.unstage_files(&repo, &files_to_ignore) {
-                    warn!("Warning: Failed to unstage some files: {}", e);
+                    warn!("Warning: Failed to unstage some files: {e}");
                 }
 
                 Ok(true)
@@ -262,7 +260,7 @@ impl NoSecretFilesStaged {
         // Add new entries that don't already exist
         for file_path in files {
             if !existing_entries.contains(file_path) {
-                writeln!(file, "{}", file_path)?;
+                writeln!(file, "{file_path}")?;
             }
         }
 

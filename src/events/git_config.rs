@@ -56,7 +56,7 @@ impl GitConfig {
         config.get_string(key).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Configuration key '{}' not found: {}", key, e),
+                &format!("Configuration key '{key}' not found: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -121,7 +121,7 @@ impl GitConfig {
                 let repo = Repository::discover(Path::new(".")).map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to open repository: {}", e),
+                        &format!("Failed to open repository: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -132,7 +132,7 @@ impl GitConfig {
                 repo.config().map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to get local config: {}", e),
+                        &format!("Failed to get local config: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -143,7 +143,7 @@ impl GitConfig {
             ConfigScope::Global => Config::open_default().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get global config: {}", e),
+                    &format!("Failed to get global config: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -154,7 +154,7 @@ impl GitConfig {
                 let mut config = Config::new().map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to create config object: {}", e),
+                        &format!("Failed to create config object: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_EVENT,
                         &self.name,
@@ -168,7 +168,7 @@ impl GitConfig {
                         .map_err(|e| {
                             Box::new(BGitError::new(
                                 "BGitError",
-                                &format!("Failed to add system config: {}", e),
+                                &format!("Failed to add system config: {e}"),
                                 BGitErrorWorkflowType::AtomicEvent,
                                 NO_EVENT,
                                 &self.name,

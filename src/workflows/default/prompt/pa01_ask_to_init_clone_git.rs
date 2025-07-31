@@ -56,7 +56,7 @@ impl PromptStep for AskToInitCloneGit {
                     .interact_text()
                     .unwrap();
 
-                println!("Initializing Git repository at: {}", path);
+                println!("Initializing Git repository at: {path}");
 
                 // Create InitGitRepo with path
 

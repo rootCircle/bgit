@@ -71,7 +71,7 @@ pub fn has_unstaged_or_new_files() -> Result<bool, Box<BGitError>> {
     let repo = Repository::discover(Path::new(".")).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to open repository: {}", e),
+            &format!("Failed to open repository: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "has_unstaged_or_new_files",
@@ -87,7 +87,7 @@ pub fn has_unstaged_or_new_files() -> Result<bool, Box<BGitError>> {
     let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to get repository status: {}", e),
+            &format!("Failed to get repository status: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "has_unstaged_or_new_files",
@@ -118,7 +118,7 @@ pub fn get_unstaged_files_list() -> Result<Vec<FileStatus>, Box<BGitError>> {
     let repo = Repository::discover(Path::new(".")).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to open repository: {}", e),
+            &format!("Failed to open repository: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "get_unstaged_files_list",
@@ -134,7 +134,7 @@ pub fn get_unstaged_files_list() -> Result<Vec<FileStatus>, Box<BGitError>> {
     let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to get repository status: {}", e),
+            &format!("Failed to get repository status: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "get_unstaged_files_list",
@@ -180,7 +180,7 @@ pub fn has_staged_files() -> Result<bool, Box<BGitError>> {
     let repo = Repository::discover(Path::new(".")).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to open repository: {}", e),
+            &format!("Failed to open repository: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "has_staged_files",
@@ -196,7 +196,7 @@ pub fn has_staged_files() -> Result<bool, Box<BGitError>> {
     let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
         Box::new(BGitError::new(
             "BGitError",
-            &format!("Failed to get repository status: {}", e),
+            &format!("Failed to get repository status: {e}"),
             BGitErrorWorkflowType::AtomicEvent,
             NO_EVENT,
             "has_staged_files",

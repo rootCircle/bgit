@@ -44,7 +44,7 @@ impl AtomicEvent for GitPush {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to discover repository: {}", e),
+                &format!("Failed to discover repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -56,7 +56,7 @@ impl AtomicEvent for GitPush {
         let head = repo.head().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get HEAD reference: {}", e),
+                &format!("Failed to get HEAD reference: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -79,7 +79,7 @@ impl AtomicEvent for GitPush {
         let mut remote = repo.find_remote("origin").map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to find remote 'origin': {}", e),
+                &format!("Failed to find remote 'origin': {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -98,9 +98,9 @@ impl AtomicEvent for GitPush {
         }
 
         let refspec = if self.set_upstream {
-            format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name)
+            format!("refs/heads/{branch_name}:refs/heads/{branch_name}")
         } else {
-            format!("refs/heads/{}", branch_name)
+            format!("refs/heads/{branch_name}")
         };
 
         // Perform the push with force-with-lease if enabled
@@ -117,7 +117,7 @@ impl AtomicEvent for GitPush {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to push to remote: {}. Please check your SSH keys or authentication setup.", e),
+                    &format!("Failed to push to remote: {e}. Please check your SSH keys or authentication setup."),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -155,7 +155,7 @@ impl GitPush {
         let local_commit = head.peel_to_commit().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get local commit: {}", e),
+                &format!("Failed to get local commit: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -164,12 +164,11 @@ impl GitPush {
         })?;
 
         // Check if remote branch exists and validate
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-        {
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
             let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get remote commit: {}", e),
+                    &format!("Failed to get remote commit: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -193,8 +192,7 @@ impl GitPush {
         base_refspec: &str,
     ) -> Result<String, Box<BGitError>> {
         // Force-with-lease using the current remote tracking branch as the expected value
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-        {
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
             let remote_oid = remote_ref.target().ok_or_else(|| {
                 Box::new(BGitError::new(
                     "BGitError",
@@ -206,7 +204,7 @@ impl GitPush {
                 ))
             })?;
 
-            Ok(format!("+{}^{{{}}}", base_refspec, remote_oid))
+            Ok(format!("+{base_refspec}^{{{remote_oid}}}"))
         } else {
             Err(Box::new(BGitError::new(
                 "BGitError",
@@ -225,12 +223,11 @@ impl GitPush {
         head: &git2::Reference,
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-        {
+        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
             let local_commit = head.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get local commit: {}", e),
+                    &format!("Failed to get local commit: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -241,7 +238,7 @@ impl GitPush {
             let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get remote commit: {}", e),
+                    &format!("Failed to get remote commit: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -260,7 +257,7 @@ impl GitPush {
                 .map_err(|e| {
                     Box::new(BGitError::new(
                         "BGitError",
-                        &format!("Failed to find merge base: {}", e),
+                        &format!("Failed to find merge base: {e}"),
                         BGitErrorWorkflowType::AtomicEvent,
                         NO_STEP,
                         self.get_name(),
@@ -293,7 +290,7 @@ impl GitPush {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to find local branch {}: {}", branch_name, e),
+                    &format!("Failed to find local branch {branch_name}: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -301,11 +298,11 @@ impl GitPush {
                 ))
             })?;
 
-        let upstream_name = format!("origin/{}", branch_name);
+        let upstream_name = format!("origin/{branch_name}");
         branch.set_upstream(Some(&upstream_name)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to set upstream to {}: {}", upstream_name, e),
+                &format!("Failed to set upstream to {upstream_name}: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -344,7 +341,7 @@ impl GitPush {
                             return Ok(cred);
                         }
                         Err(e) => {
-                            println!("SSH agent failed: {}", e);
+                            println!("SSH agent failed: {e}");
                         }
                     }
 
@@ -376,7 +373,7 @@ impl GitPush {
                                         return Ok(cred);
                                     }
                                     Err(e) => {
-                                        println!("SSH key with public key failed: {}", e);
+                                        println!("SSH key with public key failed: {e}");
                                     }
                                 }
                             }
@@ -387,7 +384,7 @@ impl GitPush {
                                     return Ok(cred);
                                 }
                                 Err(e) => {
-                                    println!("SSH key without public key failed: {}", e);
+                                    println!("SSH key without public key failed: {e}");
                                 }
                             }
                         }
@@ -421,7 +418,7 @@ impl GitPush {
                         return Ok(cred);
                     }
                     Err(e) => {
-                        println!("Default authentication failed: {}", e);
+                        println!("Default authentication failed: {e}");
                     }
                 }
             }
@@ -441,11 +438,11 @@ impl GitPush {
         // Add push update reference callback for better error reporting
         callbacks.push_update_reference(|refname, status| match status {
             Some(msg) => {
-                println!("Push failed for {}: {}", refname, msg);
+                println!("Push failed for {refname}: {msg}");
                 Err(git2::Error::from_str(msg))
             }
             None => {
-                println!("Push successful for {}", refname);
+                println!("Push successful for {refname}");
                 Ok(())
             }
         });
@@ -454,7 +451,7 @@ impl GitPush {
         callbacks.certificate_check(|_cert, _host| {
             // In production, you should properly validate certificates
             // For now, we'll accept all certificates (not recommended for production)
-            println!("Certificate check for host: {}", _host);
+            println!("Certificate check for host: {_host}");
             Ok(git2::CertificateCheckStatus::CertificateOk)
         });
 

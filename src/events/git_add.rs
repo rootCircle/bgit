@@ -91,7 +91,7 @@ impl GitAdd {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -103,7 +103,7 @@ impl GitAdd {
         let mut index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository index: {}", e),
+                &format!("Failed to get repository index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -117,7 +117,7 @@ impl GitAdd {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to add files to index: {}", e),
+                    &format!("Failed to add files to index: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -129,7 +129,7 @@ impl GitAdd {
         index.write().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to write index: {}", e),
+                &format!("Failed to write index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -146,7 +146,7 @@ impl GitAdd {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -157,7 +157,7 @@ impl GitAdd {
         let mut index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository index: {}", e),
+                &format!("Failed to get repository index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,
@@ -169,7 +169,7 @@ impl GitAdd {
             index.add_path(Path::new(file_path)).map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to add file '{}' to index: {}", file_path, e),
+                    &format!("Failed to add file '{file_path}' to index: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -181,7 +181,7 @@ impl GitAdd {
         index.write().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to write index: {}", e),
+                &format!("Failed to write index: {e}"),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_EVENT,
                 &self.name,

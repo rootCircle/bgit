@@ -46,7 +46,7 @@ impl PromptStep for AskAddMode {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get user selection: {}", e),
+                    &format!("Failed to get user selection: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,
@@ -107,7 +107,7 @@ impl AskAddMode {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get file selections: {}", e),
+                    &format!("Failed to get file selections: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_EVENT,
                     &self.name,

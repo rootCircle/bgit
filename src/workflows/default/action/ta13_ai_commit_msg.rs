@@ -84,7 +84,7 @@ impl ActionStep for AICommit {
         // Generate commit message using AI
         let commit_message = self.generate_commit_message(&api_key, &diff_content)?;
 
-        debug!("Generated commit message: {}", commit_message);
+        debug!("Generated commit message: {commit_message}");
 
         // Execute GitCommit with the generated message
         let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
@@ -111,7 +111,7 @@ impl AICommit {
         let repo = Repository::discover(Path::new(".")).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to open repository: {}", e),
+                &format!("Failed to open repository: {e}"),
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
@@ -128,7 +128,7 @@ impl AICommit {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get HEAD: {}", e),
+                    &format!("Failed to get HEAD: {e}"),
                     crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                     crate::bgit_error::NO_EVENT,
                     &self.name,
@@ -139,7 +139,7 @@ impl AICommit {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to peel HEAD to tree: {}", e),
+                    &format!("Failed to peel HEAD to tree: {e}"),
                     crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                     crate::bgit_error::NO_EVENT,
                     &self.name,
@@ -150,7 +150,7 @@ impl AICommit {
         let index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to get repository index: {}", e),
+                &format!("Failed to get repository index: {e}"),
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
@@ -163,7 +163,7 @@ impl AICommit {
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to create staged diff: {}", e),
+                    &format!("Failed to create staged diff: {e}"),
                     crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                     crate::bgit_error::NO_EVENT,
                     &self.name,
@@ -176,9 +176,9 @@ impl AICommit {
         diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
             let line_str = std::str::from_utf8(line.content()).unwrap_or("");
             match line.origin() {
-                '+' => diff_content.push_str(&format!("+{}", line_str)),
-                '-' => diff_content.push_str(&format!("-{}", line_str)),
-                ' ' => diff_content.push_str(&format!(" {}", line_str)),
+                '+' => diff_content.push_str(&format!("+{line_str}")),
+                '-' => diff_content.push_str(&format!("-{line_str}")),
+                ' ' => diff_content.push_str(&format!(" {line_str}")),
                 _ => diff_content.push_str(line_str),
             }
             true
@@ -186,7 +186,7 @@ impl AICommit {
         .map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to process diff: {}", e),
+                &format!("Failed to process diff: {e}"),
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
@@ -206,7 +206,7 @@ impl AICommit {
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to create async runtime: {}", e),
+                &format!("Failed to create async runtime: {e}"),
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
@@ -231,8 +231,7 @@ impl AICommit {
         let system_prompt = "You are a git commit message generator. Generate concise, conventional commit messages based on git diffs. Follow conventional commit format (type: description). Keep the summary line under 50 characters. Focus on what changed and why.";
 
         let user_prompt = format!(
-            "Generate a conventional commit message for the following git diff:\n\n{}",
-            diff_content
+            "Generate a conventional commit message for the following git diff:\n\n{diff_content}"
         );
 
         // Create request similar to CodeSolutionGenerator

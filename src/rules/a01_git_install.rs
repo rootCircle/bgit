@@ -41,8 +41,7 @@ impl Rule for IsGitInstalledLocally {
         let output = Command::new("git").arg("--version").output();
         match output {
             Err(e) => Ok(RuleOutput::Exception(format!(
-                "Failed to execute command: {}",
-                e
+                "Failed to execute command: {e}"
             ))),
             Ok(output_response) => {
                 if output_response.status.success() {

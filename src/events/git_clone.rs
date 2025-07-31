@@ -74,7 +74,7 @@ impl AtomicEvent for GitClone {
         builder.clone(&self.url, Path::new(repo_name)).map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to clone repository: {}. Please check your SSH keys or authentication setup.", e),
+                &format!("Failed to clone repository: {e}. Please check your SSH keys or authentication setup."),
                 BGitErrorWorkflowType::AtomicEvent,
                 NO_STEP,
                 self.get_name(),
@@ -150,7 +150,7 @@ impl GitClone {
                             return Ok(cred);
                         }
                         Err(e) => {
-                            println!("SSH agent failed: {}", e);
+                            println!("SSH agent failed: {e}");
                         }
                     }
 
@@ -182,7 +182,7 @@ impl GitClone {
                                         return Ok(cred);
                                     }
                                     Err(e) => {
-                                        eprintln!("SSH key with public key failed: {}", e);
+                                        eprintln!("SSH key with public key failed: {e}");
                                     }
                                 }
                             }
@@ -193,7 +193,7 @@ impl GitClone {
                                     return Ok(cred);
                                 }
                                 Err(e) => {
-                                    eprintln!("SSH key without public key failed: {}", e);
+                                    eprintln!("SSH key without public key failed: {e}");
                                 }
                             }
                         }
@@ -227,7 +227,7 @@ impl GitClone {
                         return Ok(cred);
                     }
                     Err(e) => {
-                        eprintln!("Default authentication failed: {}", e);
+                        eprintln!("Default authentication failed: {e}");
                     }
                 }
             }

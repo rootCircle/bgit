@@ -53,8 +53,7 @@ impl Rule for NoLargeFile {
             Ok(repo) => repo,
             Err(e) => {
                 return Ok(RuleOutput::Exception(format!(
-                    "Failed to open repository: {}",
-                    e
+                    "Failed to open repository: {e}"
                 )));
             }
         };
@@ -67,8 +66,7 @@ impl Rule for NoLargeFile {
             Ok(statuses) => statuses,
             Err(e) => {
                 return Ok(RuleOutput::Exception(format!(
-                    "Failed to get repository status: {}",
-                    e
+                    "Failed to get repository status: {e}"
                 )));
             }
         };
@@ -223,7 +221,7 @@ impl Rule for NoLargeFile {
             }
 
             for ext in &extensions {
-                println!("   git lfs track \"*.{}\"", ext);
+                println!("   git lfs track \"*.{ext}\"");
             }
 
             println!("\n3. Add .gitattributes and re-add the files:");
@@ -237,10 +235,7 @@ impl Rule for NoLargeFile {
                     Ok(true)
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to automatically update .gitattributes: {}",
-                        e
-                    );
+                    eprintln!("Warning: Failed to automatically update .gitattributes: {e}");
                     Ok(false)
                 }
             }
@@ -322,7 +317,7 @@ impl NoLargeFile {
 
                 // Check wildcard patterns like *.mp4
                 if let Some(ext) = file_ext {
-                    if pattern == format!("*.{}", ext) {
+                    if pattern == format!("*.{ext}") {
                         return Ok(true);
                     }
                 }
@@ -368,12 +363,12 @@ impl NoLargeFile {
             .open(&gitattributes_path)?;
 
         for ext in extensions {
-            let pattern = format!("*.{}", ext);
-            let lfs_line = format!("{} filter=lfs diff=lfs merge=lfs -text", pattern);
+            let pattern = format!("*.{ext}");
+            let lfs_line = format!("{pattern} filter=lfs diff=lfs merge=lfs -text");
 
             // Only add if not already present
             if !existing_content.contains(&lfs_line) {
-                writeln!(file, "{}", lfs_line)?;
+                writeln!(file, "{lfs_line}")?;
             }
         }
 
