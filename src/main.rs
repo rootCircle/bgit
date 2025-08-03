@@ -5,6 +5,7 @@ use crate::cmd::log::log;
 use crate::cmd::{Cli, Commands};
 use crate::config::BGitConfig;
 
+mod auth;
 mod bgit_error;
 mod cmd;
 mod config;
