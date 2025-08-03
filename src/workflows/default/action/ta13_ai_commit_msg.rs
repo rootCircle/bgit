@@ -122,21 +122,9 @@ impl AICommit {
         let mut diff_opts = DiffOptions::new();
         diff_opts.include_untracked(false);
 
-        // Get diff between HEAD and index (staged changes)
-        let head_tree = repo
-            .head()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD: {e}"),
-                    crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                    crate::bgit_error::NO_EVENT,
-                    &self.name,
-                    crate::bgit_error::NO_RULE,
-                ))
-            })?
-            .peel_to_tree()
-            .map_err(|e| {
+        // Get diff between HEAD and index (staged changes) - handle unborn branch case
+        let head_tree = match repo.head() {
+            Ok(head) => Some(head.peel_to_tree().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
                     &format!("Failed to peel HEAD to tree: {e}"),
@@ -145,7 +133,22 @@ impl AICommit {
                     &self.name,
                     crate::bgit_error::NO_RULE,
                 ))
-            })?;
+            })?),
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                // No HEAD tree in unborn branch - use None to compare against empty tree
+                None
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD: {e}"),
+                    crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+                    crate::bgit_error::NO_EVENT,
+                    &self.name,
+                    crate::bgit_error::NO_RULE,
+                )));
+            }
+        };
 
         let index = repo.index().map_err(|e| {
             Box::new(BGitError::new(
@@ -159,7 +162,7 @@ impl AICommit {
         })?;
 
         let diff = repo
-            .diff_tree_to_index(Some(&head_tree), Some(&index), Some(&mut diff_opts))
+            .diff_tree_to_index(head_tree.as_ref(), Some(&index), Some(&mut diff_opts))
             .map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",

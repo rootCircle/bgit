@@ -138,16 +138,32 @@ impl GitLog {
             ))
         })?;
 
-        revwalk.push_head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to push HEAD to revwalk: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        // Try to push HEAD to revwalk
+        match revwalk.push_head() {
+            Ok(()) => {
+                // Continue with normal processing
+            }
+            Err(e)
+                if e.code() == git2::ErrorCode::UnbornBranch
+                    || e.code() == git2::ErrorCode::NotFound
+                    || e.class() == git2::ErrorClass::Reference =>
+            {
+                // If there are no commits or the reference doesn't exist,
+                // then the current user is technically the sole contributor
+                // since there are no other contributors to compare against
+                return Ok(true);
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to push HEAD to revwalk: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                )));
+            }
+        }
 
         for oid_result in revwalk {
             let oid = oid_result.map_err(|e| {

@@ -5,16 +5,17 @@ use crate::events::git_push::GitPush;
 
 use crate::rules::Rule;
 use crate::rules::a14_big_repo_size::IsRepoSizeTooBig;
+use crate::rules::a18_remote_exists::RemoteExists;
 use crate::{
     bgit_error::BGitError,
-    step::{ActionStep, Step},
+    step::{PromptStep, Step},
 };
 
 pub(crate) struct PullAndPush {
     name: String,
 }
 
-impl ActionStep for PullAndPush {
+impl PromptStep for PullAndPush {
     fn new() -> Self
     where
         Self: Sized,
@@ -34,7 +35,9 @@ impl ActionStep for PullAndPush {
         workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
         // Create GitPull instance with rebase flag enabled
-        let git_pull = GitPull::new().with_rebase(true);
+        let mut git_pull = GitPull::new().with_rebase(true);
+
+        git_pull.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
 
         // Execute pull with rebase
         match git_pull.execute() {
@@ -42,6 +45,7 @@ impl ActionStep for PullAndPush {
                 // Pull successful, now attempt push
                 let mut git_push = GitPush::new();
 
+                git_push.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
                 git_push.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));
 
                 // Configure push options - you can customize these as needed

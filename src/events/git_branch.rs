@@ -114,35 +114,102 @@ impl AtomicEvent for GitBranch {
 impl GitBranch {
     fn check_current_branch_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
         // Get current branch
-        let head = repo.head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let head_result = repo.head();
 
-        if !head.is_branch() {
-            eprintln!("Currently in detached HEAD state (not on any branch)");
-            return Ok(false);
-        }
+        let current_branch_name = match head_result {
+            Ok(head) => {
+                if !head.is_branch() {
+                    return Ok(false);
+                }
 
-        let current_branch_name = head.shorthand().ok_or_else(|| {
-            Box::new(BGitError::new(
-                "BGitError",
-                "Failed to get current branch name",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+                let branch_name = head.shorthand().ok_or_else(|| {
+                    Box::new(BGitError::new(
+                        "BGitError",
+                        "Failed to get current branch name",
+                        BGitErrorWorkflowType::AtomicEvent,
+                        NO_EVENT,
+                        &self.name,
+                        NO_RULE,
+                    ))
+                })?;
+                branch_name.to_string()
+            }
+            Err(e) => {
+                // Handle unborn branch case (repository with no commits)
+                if e.code() == git2::ErrorCode::UnbornBranch {
+                    match repo.head_detached() {
+                        Ok(false) => {
+                            let reference = repo.find_reference("HEAD").map_err(|e| {
+                                Box::new(BGitError::new(
+                                    "BGitError",
+                                    &format!("Failed to find HEAD reference in unborn branch: {e}"),
+                                    BGitErrorWorkflowType::AtomicEvent,
+                                    NO_EVENT,
+                                    &self.name,
+                                    NO_RULE,
+                                ))
+                            })?;
+
+                            let target = reference.symbolic_target().ok_or_else(|| {
+                                Box::new(BGitError::new(
+                                    "BGitError",
+                                    "HEAD reference is not symbolic in unborn branch",
+                                    BGitErrorWorkflowType::AtomicEvent,
+                                    NO_EVENT,
+                                    &self.name,
+                                    NO_RULE,
+                                ))
+                            })?;
+
+                            let branch_name = target.strip_prefix("refs/heads/").ok_or_else(|| {
+                                Box::new(BGitError::new(
+                                    "BGitError",
+                                    &format!("Invalid HEAD reference format in unborn branch: {target}"),
+                                    BGitErrorWorkflowType::AtomicEvent,
+                                    NO_EVENT,
+                                    &self.name,
+                                    NO_RULE,
+                                ))
+                            })?;
+
+                            branch_name.to_string()
+                        }
+                        Ok(true) => {
+                            return Err(Box::new(BGitError::new(
+                                "BGitError",
+                                "Repository is in detached HEAD state with unborn branch",
+                                BGitErrorWorkflowType::AtomicEvent,
+                                NO_EVENT,
+                                &self.name,
+                                NO_RULE,
+                            )));
+                        }
+                        Err(e) => {
+                            return Err(Box::new(BGitError::new(
+                                "BGitError",
+                                &format!("Failed to check HEAD detached state: {e}"),
+                                BGitErrorWorkflowType::AtomicEvent,
+                                NO_EVENT,
+                                &self.name,
+                                NO_RULE,
+                            )));
+                        }
+                    }
+                } else {
+                    return Err(Box::new(BGitError::new(
+                        "BGitError",
+                        &format!("Failed to get HEAD: {e}"),
+                        BGitErrorWorkflowType::AtomicEvent,
+                        NO_EVENT,
+                        &self.name,
+                        NO_RULE,
+                    )));
+                }
+            }
+        };
 
         // Check if current branch is one of the main branches
-        let is_main_branch = matches!(current_branch_name, "master" | "main" | "dev");
+        let is_main_branch = matches!(current_branch_name.as_str(), "master" | "main" | "dev");
 
         Ok(is_main_branch)
     }
@@ -200,27 +267,38 @@ impl GitBranch {
         // Step 2: Create new branch from current HEAD
         let branch_ref_name = {
             let target_commit = {
-                let head = repo.head().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get HEAD: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
-                })?;
-
-                head.peel_to_commit().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get target commit: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
-                })?
+                match repo.head() {
+                    Ok(head) => head.peel_to_commit().map_err(|e| {
+                        Box::new(BGitError::new(
+                            "BGitError",
+                            &format!("Failed to get target commit: {e}"),
+                            BGitErrorWorkflowType::AtomicEvent,
+                            NO_EVENT,
+                            &self.name,
+                            NO_RULE,
+                        ))
+                    })?,
+                    Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                        return Err(Box::new(BGitError::new(
+                            "BGitError",
+                            "Cannot move changes from unborn branch (no commits exist yet). Make your first commit before creating new branches.",
+                            BGitErrorWorkflowType::AtomicEvent,
+                            NO_EVENT,
+                            &self.name,
+                            NO_RULE,
+                        )));
+                    }
+                    Err(e) => {
+                        return Err(Box::new(BGitError::new(
+                            "BGitError",
+                            &format!("Failed to get HEAD: {e}"),
+                            BGitErrorWorkflowType::AtomicEvent,
+                            NO_EVENT,
+                            &self.name,
+                            NO_RULE,
+                        )));
+                    }
+                }
             };
 
             repo.branch(target_branch_name, &target_commit, false)

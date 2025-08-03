@@ -22,6 +22,7 @@ pub(crate) mod a14_big_repo_size;
 mod a15_file_not_gitignored;
 pub(crate) mod a16_no_large_file;
 pub(crate) mod a17_conventional_commit_message;
+pub(crate) mod a18_remote_exists;
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub(crate) enum RuleLevel {

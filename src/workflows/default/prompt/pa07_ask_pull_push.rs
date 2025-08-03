@@ -1,8 +1,8 @@
 use crate::config::{StepFlags, WorkflowRules};
-use crate::workflows::default::action::ta09_pull_push::PullAndPush;
+use crate::workflows::default::prompt::pa13_pull_push::PullAndPush;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    step::{ActionStep, PromptStep, Step, Task::ActionStepTask},
+    step::{PromptStep, Step, Task::PromptStepTask},
 };
 use dialoguer::{Select, theme::ColorfulTheme};
 
@@ -46,7 +46,7 @@ impl PromptStep for AskPushPull {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(PullAndPush::new())))),
+            0 => Ok(Step::Task(PromptStepTask(Box::new(PullAndPush::new())))),
             1 => Ok(Step::Stop),
             _ => Err(Box::new(BGitError::new(
                 "Invalid selection",

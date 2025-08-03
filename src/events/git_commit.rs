@@ -92,28 +92,33 @@ impl GitCommit {
             ))
         })?;
 
-        // Get the current HEAD commit
-        let head = repo.head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD reference: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        let parent_commit = head.peel_to_commit().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        // Get the current HEAD commit - handle unborn branch case
+        let parent_commit = match repo.head() {
+            Ok(head) => Some(head.peel_to_commit().map_err(|e| {
+                Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD commit: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                ))
+            })?),
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                // First commit in repository - no parent
+                None
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD reference: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                )));
+            }
+        };
 
         // Get the repository index and create a tree from it
         let mut index = repo.index().map_err(|e| {
@@ -149,14 +154,19 @@ impl GitCommit {
             ))
         })?;
 
-        // Create the commit
+        // Create the commit with appropriate parents
+        let parents: Vec<&git2::Commit> = match &parent_commit {
+            Some(commit) => vec![commit],
+            None => vec![], // No parents for initial commit
+        };
+
         repo.commit(
-            Some("HEAD"),      // Update HEAD
-            &signature,        // Author
-            &signature,        // Committer
-            message,           // Commit message
-            &tree,             // Tree
-            &[&parent_commit], // Parents
+            Some("HEAD"), // Update HEAD
+            &signature,   // Author
+            &signature,   // Committer
+            message,      // Commit message
+            &tree,        // Tree
+            &parents,     // Parents
         )
         .map_err(|e| {
             Box::new(BGitError::new(

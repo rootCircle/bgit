@@ -49,40 +49,62 @@ impl AtomicEvent for GitPull {
             ))
         })?;
 
-        // Get the current branch
-        let head = repo.head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD reference: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        // Get the current branch - handle unborn branch case
+        let branch_name = match repo.head() {
+            Ok(head) => head
+                .shorthand()
+                .ok_or_else(|| {
+                    Box::new(BGitError::new(
+                        "BGitError",
+                        "Failed to get branch name",
+                        BGitErrorWorkflowType::AtomicEvent,
+                        NO_STEP,
+                        self.get_name(),
+                        NO_RULE,
+                    ))
+                })?
+                .to_string(),
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                // In unborn branch state, we can only fetch (no merge/rebase possible)
+                // Just perform a fetch and return success
+                return self.fetch_only(&repo);
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD reference: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        };
 
-        let branch_name = head.shorthand().ok_or_else(|| {
-            Box::new(BGitError::new(
-                "BGitError",
-                "Failed to get branch name",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
-
-        // Fetch from remote first
-        let mut remote = repo.find_remote("origin").map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to find remote 'origin': {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        // Find remote origin - handle case where no remote is configured
+        let mut remote = match repo.find_remote("origin") {
+            Ok(remote) => remote,
+            Err(e) if e.code() == git2::ErrorCode::NotFound => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to find remote 'origin': {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        };
 
         // Set up fetch options with authentication
         let mut fetch_options = Self::create_fetch_options();
@@ -357,10 +379,9 @@ impl GitPull {
             ))
         })?;
 
-        // Fix unwrap here
-        let head_commit = repo
-            .head()
-            .map_err(|e| {
+        // Get head commit - this should exist since merge is only called when HEAD exists
+        let head_commit = {
+            let head = repo.head().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
                     &format!("Failed to get HEAD reference: {e}"),
@@ -369,9 +390,9 @@ impl GitPull {
                     self.get_name(),
                     NO_RULE,
                 ))
-            })?
-            .peel_to_commit()
-            .map_err(|e| {
+            })?;
+
+            head.peel_to_commit().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
                     &format!("Failed to get HEAD commit: {e}"),
@@ -380,14 +401,15 @@ impl GitPull {
                     self.get_name(),
                     NO_RULE,
                 ))
-            })?;
+            })?
+        };
 
         // Check if we're already up to date
         if head_commit.id() == remote_commit.id() {
             return Ok(());
         }
 
-        // Perform merge
+        // Find merge base between local and remote commits
         let merge_base = repo
             .merge_base(head_commit.id(), remote_commit.id())
             .map_err(|e| {
@@ -408,10 +430,11 @@ impl GitPull {
 
         // If head is ancestor of remote, fast-forward
         if merge_base == head_commit.id() {
+            // Get HEAD reference for fast-forward update
             let mut head_ref = repo.head().map_err(|e| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
+                    &format!("Failed to get HEAD reference for fast-forward: {e}"),
                     BGitErrorWorkflowType::AtomicEvent,
                     NO_STEP,
                     self.get_name(),
@@ -595,5 +618,53 @@ impl GitPull {
         let mut fetch_options = git2::FetchOptions::new();
         fetch_options.remote_callbacks(Self::setup_auth_callbacks());
         fetch_options
+    }
+
+    /// Handle fetch-only operation for unborn branch state
+    fn fetch_only(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
+        // Find remote origin - handle case where no remote is configured
+        let mut remote = match repo.find_remote("origin") {
+            Ok(remote) => remote,
+            Err(e) if e.code() == git2::ErrorCode::NotFound => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to find remote 'origin': {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        };
+
+        // Set up fetch options with authentication
+        let mut fetch_options = Self::create_fetch_options();
+
+        // Fetch all references to update remote tracking branches
+        remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to fetch from remote: {e}. Please check your SSH keys or authentication setup."),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_STEP,
+                self.get_name(),
+                NO_RULE,
+            ))
+        })?;
+
+        println!(
+            "Successfully fetched from remote (no merge/rebase performed - repository has no commits yet)"
+        );
+        Ok(true)
     }
 }

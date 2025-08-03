@@ -4,7 +4,6 @@ pub(crate) mod ta03_pop_stash;
 pub(crate) mod ta04_has_unstaged;
 pub(crate) mod ta07_has_uncommitted;
 pub(crate) mod ta08_is_pulled_pushed;
-pub(crate) mod ta09_pull_push;
 pub(crate) mod ta10_is_branch_main;
 pub(crate) mod ta11_is_sole_contributor;
 pub(crate) mod ta12_move_changes;

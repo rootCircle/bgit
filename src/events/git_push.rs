@@ -52,49 +52,79 @@ impl AtomicEvent for GitPush {
             ))
         })?;
 
-        // Get the current branch
-        let head = repo.head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD reference: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        // Get the current branch - handle unborn branch case
+        let (head, branch_name) = match repo.head() {
+            Ok(head) => {
+                let branch_name = head
+                    .shorthand()
+                    .ok_or_else(|| {
+                        Box::new(BGitError::new(
+                            "BGitError",
+                            "Failed to get branch name",
+                            BGitErrorWorkflowType::AtomicEvent,
+                            NO_STEP,
+                            self.get_name(),
+                            NO_RULE,
+                        ))
+                    })?
+                    .to_string();
+                (head, branch_name)
+            }
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "Cannot push from unborn branch (no commits to push). Create your first commit before pushing.",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD reference: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        };
 
-        let branch_name = head.shorthand().ok_or_else(|| {
-            Box::new(BGitError::new(
-                "BGitError",
-                "Failed to get branch name",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
-
-        // Get remote
-        let mut remote = repo.find_remote("origin").map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to find remote 'origin': {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        // Get remote - handle case where no remote is configured
+        let mut remote = match repo.find_remote("origin") {
+            Ok(remote) => remote,
+            Err(e) if e.code() == git2::ErrorCode::NotFound => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to find remote 'origin': {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_STEP,
+                    self.get_name(),
+                    NO_RULE,
+                )));
+            }
+        };
 
         // Prepare push options with authentication
         let mut push_options = Self::create_push_options();
 
         // Validation
         if self.force_with_lease {
-            self.validate_force_with_lease(&repo, &head, branch_name)?;
+            self.validate_force_with_lease(&repo, &head, &branch_name)?;
         } else {
-            self.validate_push_safety(&repo, &head, branch_name)?;
+            self.validate_push_safety(&repo, &head, &branch_name)?;
         }
 
         let refspec = if self.set_upstream {
@@ -106,7 +136,7 @@ impl AtomicEvent for GitPush {
         // Perform the push with force-with-lease if enabled
         let refspecs = if self.force_with_lease {
             let force_lease_refspec =
-                self.build_force_with_lease_refspec(&repo, branch_name, &refspec)?;
+                self.build_force_with_lease_refspec(&repo, &branch_name, &refspec)?;
             vec![force_lease_refspec]
         } else {
             vec![refspec]
@@ -127,7 +157,7 @@ impl AtomicEvent for GitPush {
 
         // Set upstream if requested and push was successful
         if self.set_upstream {
-            self.set_upstream_branch(&repo, branch_name)?;
+            self.set_upstream_branch(&repo, &branch_name)?;
         }
 
         Ok(true)

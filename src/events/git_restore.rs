@@ -160,28 +160,39 @@ impl GitRestore {
             ))
         })?;
 
-        // Get HEAD commit
-        let head = repo.head().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        let head_commit = head.peel_to_commit().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get HEAD commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        // Get HEAD commit - handle unborn branch case
+        let head_commit = match repo.head() {
+            Ok(head) => head.peel_to_commit().map_err(|e| {
+                Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD commit: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                ))
+            })?,
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    "Cannot restore staged files in unborn branch (no commits exist yet). Use 'git reset' or remove files from staging manually.",
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                )));
+            }
+            Err(e) => {
+                return Err(Box::new(BGitError::new(
+                    "BGitError",
+                    &format!("Failed to get HEAD: {e}"),
+                    BGitErrorWorkflowType::AtomicEvent,
+                    NO_EVENT,
+                    &self.name,
+                    NO_RULE,
+                )));
+            }
+        };
 
         // Reset index to HEAD (unstage all files)
         repo.reset(head_commit.as_object(), ResetType::Mixed, None)
