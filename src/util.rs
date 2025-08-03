@@ -19,7 +19,7 @@ pub(crate) fn find_hook_with_extension(hook_path: &Path) -> Option<PathBuf> {
 
     // Try different extensions
     for ext in &[".bat", ".cmd", ".ps1", ".exe"] {
-        let path = hook_dir.join(format!("{}{}", hook_name, ext));
+        let path = hook_dir.join(format!("{hook_name}{ext}"));
         if path.exists() {
             return Some(path);
         }
