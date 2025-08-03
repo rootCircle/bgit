@@ -11,18 +11,14 @@ pub fn ssh_authenticate_git(
     allowed_types: CredentialType,
     attempt_count: usize,
 ) -> Result<Cred, Error> {
-    debug!(
-        "Git authentication attempt #{} for URL: {}",
-        attempt_count, url
-    );
-    debug!("Username from URL: {:?}", username_from_url);
-    debug!("Allowed credential types: {:?}", allowed_types);
+    debug!("Git authentication attempt #{attempt_count} for URL: {url}");
+    debug!("Username from URL: {username_from_url:?}");
+    debug!("Allowed credential types: {allowed_types:?}");
 
     // Prevent infinite loops
     if attempt_count > 3 {
         debug!(
-            "Too many authentication attempts ({}), failing to prevent infinite loop",
-            attempt_count
+            "Too many authentication attempts ({attempt_count}), failing to prevent infinite loop"
         );
         return Err(Error::new(
             ErrorCode::Auth,
@@ -40,7 +36,7 @@ pub fn ssh_authenticate_git(
                 debug!("Second attempt: trying to add SSH keys to agent before authentication");
                 if std::env::var("SSH_AUTH_SOCK").is_ok() {
                     if let Err(e) = add_all_ssh_keys() {
-                        debug!("Failed to add keys to ssh-agent on second attempt: {}", e);
+                        debug!("Failed to add keys to ssh-agent on second attempt: {e}");
                     } else {
                         debug!("Keys added to ssh-agent, proceeding with authentication");
                     }
@@ -55,19 +51,16 @@ pub fn ssh_authenticate_git(
         }
     }
 
-    debug!(
-        "All authentication methods failed for attempt {}",
-        attempt_count
-    );
+    debug!("All authentication methods failed for attempt {attempt_count}");
     Err(Error::new(
         ErrorCode::Auth,
         ErrorClass::Net,
-        format!("Authentication failed - attempt {}", attempt_count),
+        format!("Authentication failed - attempt {attempt_count}"),
     ))
 }
 
 fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
-    debug!("Attempting SSH agent authentication for user: {}", username);
+    debug!("Attempting SSH agent authentication for user: {username}");
 
     if std::env::var("SSH_AUTH_SOCK").is_err() {
         debug!("SSH_AUTH_SOCK not set, attempting to spawn ssh-agent and add keys");
@@ -81,7 +74,7 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
             Ok(cred)
         }
         Err(e) => {
-            debug!("SSH agent authentication failed: {}", e);
+            debug!("SSH agent authentication failed: {e}");
 
             // Fallback to trying SSH key files directly
             debug!("Falling back to direct SSH key file authentication");
@@ -97,7 +90,7 @@ fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
         Error::new(
             ErrorCode::Auth,
             ErrorClass::Net,
-            format!("Failed to spawn ssh-agent: {}", e),
+            format!("Failed to spawn ssh-agent: {e}"),
         )
     })?;
 
@@ -110,7 +103,7 @@ fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
     }
 
     let agent_output = String::from_utf8_lossy(&output.stdout);
-    debug!("ssh-agent output: {}", agent_output);
+    debug!("ssh-agent output: {agent_output}");
 
     let env_vars = parse_ssh_agent_output(&agent_output);
 
@@ -118,7 +111,7 @@ fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
         unsafe {
             std::env::set_var(key, value);
         }
-        debug!("Set environment variable: {}={}", key, value);
+        debug!("Set environment variable: {key}={value}");
     }
 
     if !env_vars.contains_key("SSH_AUTH_SOCK") {
@@ -144,7 +137,7 @@ fn add_all_ssh_keys() -> Result<(), Error> {
     let ssh_dir = Path::new(&home_dir).join(".ssh");
 
     if !ssh_dir.exists() {
-        debug!("SSH directory {:?} does not exist", ssh_dir);
+        debug!("SSH directory {ssh_dir:?} does not exist");
         return Ok(());
     }
 
@@ -155,7 +148,7 @@ fn add_all_ssh_keys() -> Result<(), Error> {
         let key_path = ssh_dir.join(key_name);
 
         if key_path.exists() {
-            debug!("Found SSH key: {:?}", key_path);
+            debug!("Found SSH key: {key_path:?}");
 
             // First try a quick non-interactive add (for keys without passphrase)
             let quick_result = Command::new("ssh-add")
@@ -171,58 +164,52 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 
             match quick_result {
                 Ok(output) if output.status.success() => {
-                    debug!("Successfully added key without interaction: {}", key_name);
+                    debug!("Successfully added key without interaction: {key_name}");
                     added_count += 1;
                 }
                 Ok(output) => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    debug!("Quick add failed for {}: {}", key_name, stderr);
+                    debug!("Quick add failed for {key_name}: {stderr}");
 
-                    debug!(
-                        "Key {} appears to need passphrase, trying interactive add",
-                        key_name
-                    );
+                    debug!("Key {key_name} appears to need passphrase, trying interactive add");
 
                     match add_key_interactive(&key_path, key_name) {
                         Ok(true) => {
-                            debug!("Successfully added key interactively: {}", key_name);
+                            debug!("Successfully added key interactively: {key_name}");
                             added_count += 1;
                         }
                         Ok(false) => {
-                            debug!("User skipped key: {}", key_name);
+                            debug!("User skipped key: {key_name}");
                         }
                         Err(e) => {
-                            debug!("Interactive add failed for {}: {}", key_name, e);
+                            debug!("Interactive add failed for {key_name}: {e}");
                         }
                     }
                 }
                 Err(e) => {
-                    debug!("Error running ssh-add for {}: {}", key_name, e);
+                    debug!("Error running ssh-add for {key_name}: {e}");
                 }
             }
         } else {
-            debug!("SSH key not found: {:?}", key_path);
+            debug!("SSH key not found: {key_path:?}");
         }
     }
 
-    debug!("Added {} SSH keys to ssh-agent", added_count);
+    debug!("Added {added_count} SSH keys to ssh-agent");
 
     if added_count == 0 {
         debug!("No SSH keys were added");
         println!("No SSH keys were added to ssh-agent.");
         println!("You may need to generate SSH keys or check your ~/.ssh directory.");
     } else {
-        println!(
-            "Successfully added {} SSH key(s) to ssh-agent.",
-            added_count
-        );
+        println!("Successfully added {added_count} SSH key(s) to ssh-agent.");
     }
 
     Ok(())
 }
 
 fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
-    debug!("Trying SSH key files directly for user: {}", username);
+    debug!("Trying SSH key files directly for user: {username}");
 
     let home_dir = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
@@ -233,10 +220,10 @@ fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
 
     for key_name in &key_files {
         let private_key_path = ssh_dir.join(key_name);
-        let public_key_path = ssh_dir.join(format!("{}.pub", key_name));
+        let public_key_path = ssh_dir.join(format!("{key_name}.pub"));
 
         if private_key_path.exists() && public_key_path.exists() {
-            debug!("Trying SSH key pair: {} / {}.pub", key_name, key_name);
+            debug!("Trying SSH key pair: {key_name} / {key_name}.pub");
 
             match Cred::ssh_key(
                 username,
@@ -245,11 +232,11 @@ fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
                 None, // No passphrase for now
             ) {
                 Ok(cred) => {
-                    debug!("SSH key authentication succeeded with {}", key_name);
+                    debug!("SSH key authentication succeeded with {key_name}");
                     return Ok(cred);
                 }
                 Err(e) => {
-                    debug!("SSH key authentication failed with {}: {}", key_name, e);
+                    debug!("SSH key authentication failed with {key_name}: {e}");
                 }
             }
         }
