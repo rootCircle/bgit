@@ -16,7 +16,7 @@ pub fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cr
                 Error::new(
                     ErrorCode::Auth,
                     ErrorClass::Net,
-                    format!("Failed to read username: {}", e),
+                    format!("Failed to read username: {e}"),
                 )
             })?
     };
@@ -28,7 +28,7 @@ pub fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cr
             Error::new(
                 ErrorCode::Auth,
                 ErrorClass::Net,
-                format!("Failed to read token: {}", e),
+                format!("Failed to read token: {e}"),
             )
         })?;
 
@@ -40,7 +40,7 @@ pub fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cr
                 Ok(cred)
             }
             Err(e) => {
-                debug!("Username/token authentication failed: {}", e);
+                debug!("Username/token authentication failed: {e}");
                 Err(e)
             }
         }
