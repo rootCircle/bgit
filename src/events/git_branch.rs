@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{BranchType, Repository, StashApplyOptions, StashFlags, build::CheckoutBuilder};
 use std::path::Path;
 
@@ -85,28 +82,13 @@ impl AtomicEvent for GitBranch {
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         // Open the repository at the current directory
-        let mut repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         match &self.operation {
             Some(BranchOperation::CheckCurrentBranch) => self.check_current_branch_impl(&repo),
             Some(BranchOperation::MoveChanges) => self.move_changes_impl(&mut repo),
-            None => Err(Box::new(BGitError::new(
-                "BGitError",
-                "No branch operation specified",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))),
+            None => Err(self.to_bgit_error("No branch operation specified")),
         }
     }
 }
@@ -122,16 +104,9 @@ impl GitBranch {
                     return Ok(false);
                 }
 
-                let branch_name = head.shorthand().ok_or_else(|| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        "Failed to get current branch name",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
-                })?;
+                let branch_name = head
+                    .shorthand()
+                    .ok_or_else(|| self.to_bgit_error("Failed to get current branch name"))?;
                 branch_name.to_string()
             }
             Err(e) => {
@@ -140,70 +115,39 @@ impl GitBranch {
                     match repo.head_detached() {
                         Ok(false) => {
                             let reference = repo.find_reference("HEAD").map_err(|e| {
-                                Box::new(BGitError::new(
-                                    "BGitError",
-                                    &format!("Failed to find HEAD reference in unborn branch: {e}"),
-                                    BGitErrorWorkflowType::AtomicEvent,
-                                    NO_EVENT,
-                                    &self.name,
-                                    NO_RULE,
+                                self.to_bgit_error(&format!(
+                                    "Failed to find HEAD reference in unborn branch: {e}"
                                 ))
                             })?;
 
                             let target = reference.symbolic_target().ok_or_else(|| {
-                                Box::new(BGitError::new(
-                                    "BGitError",
+                                self.to_bgit_error(
                                     "HEAD reference is not symbolic in unborn branch",
-                                    BGitErrorWorkflowType::AtomicEvent,
-                                    NO_EVENT,
-                                    &self.name,
-                                    NO_RULE,
-                                ))
+                                )
                             })?;
 
-                            let branch_name = target.strip_prefix("refs/heads/").ok_or_else(|| {
-                                Box::new(BGitError::new(
-                                    "BGitError",
-                                    &format!("Invalid HEAD reference format in unborn branch: {target}"),
-                                    BGitErrorWorkflowType::AtomicEvent,
-                                    NO_EVENT,
-                                    &self.name,
-                                    NO_RULE,
-                                ))
-                            })?;
+                            let branch_name =
+                                target.strip_prefix("refs/heads/").ok_or_else(|| {
+                                    self.to_bgit_error(&format!(
+                                        "Invalid HEAD reference format in unborn branch: {target}"
+                                    ))
+                                })?;
 
                             branch_name.to_string()
                         }
                         Ok(true) => {
-                            return Err(Box::new(BGitError::new(
-                                "BGitError",
+                            return Err(self.to_bgit_error(
                                 "Repository is in detached HEAD state with unborn branch",
-                                BGitErrorWorkflowType::AtomicEvent,
-                                NO_EVENT,
-                                &self.name,
-                                NO_RULE,
-                            )));
+                            ));
                         }
                         Err(e) => {
-                            return Err(Box::new(BGitError::new(
-                                "BGitError",
-                                &format!("Failed to check HEAD detached state: {e}"),
-                                BGitErrorWorkflowType::AtomicEvent,
-                                NO_EVENT,
-                                &self.name,
-                                NO_RULE,
+                            return Err(self.to_bgit_error(&format!(
+                                "Failed to check HEAD detached state: {e}"
                             )));
                         }
                     }
                 } else {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get HEAD: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    )));
+                    return Err(self.to_bgit_error(&format!("Failed to get HEAD: {e}")));
                 }
             }
         };
@@ -219,14 +163,8 @@ impl GitBranch {
         let target_branch_name = match &self.target_branch_name {
             Some(name) => name,
             None => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Target branch name not provided for move changes operation",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                return Err(self
+                    .to_bgit_error("Target branch name not provided for move changes operation"));
             }
         };
 
@@ -235,26 +173,14 @@ impl GitBranch {
             .find_branch(target_branch_name, BranchType::Local)
             .is_ok()
         {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                &format!("Target branch '{target_branch_name}' already exists"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
+            return Err(self.to_bgit_error(&format!(
+                "Target branch '{target_branch_name}' already exists"
             )));
         }
 
         // Check if there are any changes to move
         if !self.has_changes(repo)? {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                "No changes found to move to new branch",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            )));
+            return Err(self.to_bgit_error("No changes found to move to new branch"));
         }
 
         // Step 1: Save current changes to stash with index
@@ -269,60 +195,29 @@ impl GitBranch {
             let target_commit = {
                 match repo.head() {
                     Ok(head) => head.peel_to_commit().map_err(|e| {
-                        Box::new(BGitError::new(
-                            "BGitError",
-                            &format!("Failed to get target commit: {e}"),
-                            BGitErrorWorkflowType::AtomicEvent,
-                            NO_EVENT,
-                            &self.name,
-                            NO_RULE,
-                        ))
+                        self.to_bgit_error(&format!("Failed to get target commit: {e}"))
                     })?,
                     Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
-                        return Err(Box::new(BGitError::new(
-                            "BGitError",
-                            "Cannot move changes from unborn branch (no commits exist yet). Make your first commit before creating new branches.",
-                            BGitErrorWorkflowType::AtomicEvent,
-                            NO_EVENT,
-                            &self.name,
-                            NO_RULE,
-                        )));
+                        return Err(self.to_bgit_error("Cannot move changes from unborn branch (no commits exist yet). Make your first commit before creating new branches."));
                     }
                     Err(e) => {
-                        return Err(Box::new(BGitError::new(
-                            "BGitError",
-                            &format!("Failed to get HEAD: {e}"),
-                            BGitErrorWorkflowType::AtomicEvent,
-                            NO_EVENT,
-                            &self.name,
-                            NO_RULE,
-                        )));
+                        return Err(self.to_bgit_error(&format!("Failed to get HEAD: {e}")));
                     }
                 }
             };
 
             repo.branch(target_branch_name, &target_commit, false)
                 .map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to create branch '{target_branch_name}': {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
+                    self.to_bgit_error(&format!(
+                        "Failed to create branch '{target_branch_name}': {e}"
                     ))
                 })?;
 
             let branch = repo
                 .find_branch(target_branch_name, BranchType::Local)
                 .map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to find newly created branch '{target_branch_name}': {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
+                    self.to_bgit_error(&format!(
+                        "Failed to find newly created branch '{target_branch_name}': {e}"
                     ))
                 })?;
 
@@ -331,28 +226,11 @@ impl GitBranch {
         };
 
         // Step 3: Checkout the new branch
-        repo.set_head(&branch_ref_name).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to set HEAD to new branch: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        repo.set_head(&branch_ref_name)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to set HEAD to new branch: {e}")))?;
 
         repo.checkout_head(Some(CheckoutBuilder::default().force()))
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to checkout new branch: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to checkout new branch: {e}")))?;
 
         // Step 4: Pop the stash with checkout strategy to preserve staging
         let mut apply_options = StashApplyOptions::default();
@@ -360,16 +238,8 @@ impl GitBranch {
         // Use reinstantiate_index to preserve the staging state from the stash
         apply_options.reinstantiate_index();
 
-        repo.stash_pop(0, Some(&mut apply_options)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to apply stashed changes: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        repo.stash_pop(0, Some(&mut apply_options))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to apply stashed changes: {e}")))?;
 
         Ok(true)
     }
@@ -379,29 +249,13 @@ impl GitBranch {
         repo: &mut Repository,
         message: &str,
     ) -> Result<git2::Oid, Box<BGitError>> {
-        let signature = repo.signature().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get signature: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let signature = repo
+            .signature()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get signature: {e}")))?;
 
         let stash_id = repo
             .stash_save(&signature, message, Some(StashFlags::DEFAULT))
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to save stash: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to save stash: {e}")))?;
 
         Ok(stash_id)
     }
@@ -411,16 +265,9 @@ impl GitBranch {
         let mut status_options = git2::StatusOptions::new();
         status_options.include_untracked(true);
 
-        let statuses = repo.statuses(Some(&mut status_options)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository status: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let statuses = repo
+            .statuses(Some(&mut status_options))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository status: {e}")))?;
 
         // Check if there are any modified, added, deleted, or untracked files
         for entry in statuses.iter() {

@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{Config, Repository};
 use std::path::Path;
 
@@ -42,27 +39,14 @@ impl GitConfig {
     pub fn get_value(&self) -> Result<String, Box<BGitError>> {
         let config = self.get_config_object()?;
 
-        let key = self.key.as_ref().ok_or_else(|| {
-            Box::new(BGitError::new(
-                "BGitError",
-                "Config key not provided for get operation",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let key = self
+            .key
+            .as_ref()
+            .ok_or_else(|| self.to_bgit_error("Config key not provided for get operation"))?;
 
-        config.get_string(key).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Configuration key '{key}' not found: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })
+        config
+            .get_string(key)
+            .map_err(|e| self.to_bgit_error(&format!("Configuration key '{key}' not found: {e}")))
     }
 }
 
@@ -102,14 +86,7 @@ impl AtomicEvent for GitConfig {
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         match &self.operation {
             Some(ConfigOperation::Get) => Ok(self.get_value().is_ok()),
-            None => Err(Box::new(BGitError::new(
-                "BGitError",
-                "No config operation specified",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))),
+            None => Err(self.to_bgit_error("No config operation specified")),
         }
     }
 }
@@ -118,62 +95,24 @@ impl GitConfig {
     fn get_config_object(&self) -> Result<Config, Box<BGitError>> {
         match self.scope {
             ConfigScope::Local => {
-                let repo = Repository::discover(Path::new(".")).map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to open repository: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
-                })?;
+                let repo = Repository::discover(Path::new("."))
+                    .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
-                repo.config().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to get local config: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
-                })
+                repo.config()
+                    .map_err(|e| self.to_bgit_error(&format!("Failed to get local config: {e}")))
             }
-            ConfigScope::Global => Config::open_default().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get global config: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            }),
+            ConfigScope::Global => Config::open_default()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get global config: {e}"))),
             ConfigScope::System => {
                 let mut config = Config::new().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to create config object: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    ))
+                    self.to_bgit_error(&format!("Failed to create config object: {e}"))
                 })?;
 
                 if let Ok(system_path) = Config::find_system() {
                     config
                         .add_file(&system_path, git2::ConfigLevel::System, false)
                         .map_err(|e| {
-                            Box::new(BGitError::new(
-                                "BGitError",
-                                &format!("Failed to add system config: {e}"),
-                                BGitErrorWorkflowType::AtomicEvent,
-                                NO_EVENT,
-                                &self.name,
-                                NO_RULE,
-                            ))
+                            self.to_bgit_error(&format!("Failed to add system config: {e}"))
                         })?;
                 }
 

@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{IndexAddOption, Repository};
 use std::path::Path;
 
@@ -51,14 +48,7 @@ impl AtomicEvent for GitAdd {
             Some(AddMode::All) => self.add_all_files(),
             Some(AddMode::Selective(selected_files)) => {
                 if selected_files.is_empty() {
-                    return Err(Box::new(BGitError::new(
-                        "BGitError",
-                        "No files selected for staging.",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_EVENT,
-                        &self.name,
-                        NO_RULE,
-                    )));
+                    return Err(self.to_bgit_error("No files selected for staging."));
                 }
                 self.add_specific_files(selected_files.iter().map(|s| s.as_str()).collect())?;
                 println!(
@@ -67,14 +57,9 @@ impl AtomicEvent for GitAdd {
                 );
                 Ok(true)
             }
-            None => Err(Box::new(BGitError::new(
-                "BGitError",
-                "No add mode specified. Use 'with_add_mode' to set it.",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))),
+            None => {
+                Err(self.to_bgit_error("No add mode specified. Use 'with_add_mode' to set it."))
+            }
         }
     }
 }
@@ -88,54 +73,23 @@ impl GitAdd {
     /// Add all unstaged files to staging area
     fn add_all_files(&self) -> Result<bool, Box<BGitError>> {
         // Open the repository at the current directory
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         // Get the repository index
-        let mut index = repo.index().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut index = repo
+            .index()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository index: {e}")))?;
 
         // Using ["."], which indicates the current directory recursively.
         index
             .add_all(["."], IndexAddOption::DEFAULT, None)
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to add files to index: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to add files to index: {e}")))?;
 
         // Write the index changes to disk
-        index.write().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to write index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        index
+            .write()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to write index: {e}")))?;
 
         Ok(true)
     }
@@ -143,51 +97,22 @@ impl GitAdd {
     /// Add specific files to the staging area
     fn add_specific_files(&self, file_paths: Vec<&str>) -> Result<(), Box<BGitError>> {
         // Open the repository at the current directory
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
-        let mut index = repo.index().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut index = repo
+            .index()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository index: {e}")))?;
 
         for file_path in file_paths {
             index.add_path(Path::new(file_path)).map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to add file '{file_path}' to index: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to add file '{file_path}' to index: {e}"))
             })?;
         }
 
-        index.write().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to write index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        index
+            .write()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to write index: {e}")))?;
 
         Ok(())
     }

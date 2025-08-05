@@ -168,4 +168,15 @@ pub(crate) trait AtomicEvent {
         }
         Ok(raw_executor_status)
     }
+
+    fn to_bgit_error(&self, message: &str) -> Box<BGitError> {
+        Box::new(BGitError::new(
+            "BGitError",
+            message,
+            BGitErrorWorkflowType::AtomicEvent,
+            NO_STEP,
+            self.get_name(),
+            NO_RULE,
+        ))
+    }
 }

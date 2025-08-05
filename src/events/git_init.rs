@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{Repository, RepositoryInitOptions};
 use std::{env, path::Path};
 
@@ -22,14 +19,7 @@ impl GitInit {
     fn update_cwd_path(&self) -> Result<(), Box<BGitError>> {
         match env::set_current_dir(&self.path) {
             Ok(_) => Ok(()),
-            Err(_) => Err(Box::new(BGitError::new(
-                "Failed to update current working directory path",
-                "update_cwd_path",
-                BGitErrorWorkflowType::PromptStep,
-                NO_STEP,
-                &self.name,
-                NO_RULE,
-            ))),
+            Err(_) => Err(self.to_bgit_error("Failed to update current working directory path")),
         }
     }
 }
@@ -67,13 +57,9 @@ impl AtomicEvent for GitInit {
         opts.initial_head("main");
 
         Repository::init_opts(Path::new(&self.path), &opts).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to initialize repository at '{}': {}", self.path, e),
-                BGitErrorWorkflowType::ActionStep,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
+            self.to_bgit_error(&format!(
+                "Failed to initialize repository at '{}': {}",
+                self.path, e
             ))
         })?;
 

@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::Repository;
 use std::collections::HashSet;
 use std::path::Path;
@@ -62,27 +59,12 @@ impl AtomicEvent for GitLog {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         match &self.operation {
             Some(LogOperation::CheckSoleContributor) => self.check_sole_contributor_impl(&repo),
-            None => Err(Box::new(BGitError::new(
-                "BGitError",
-                "No operation specified for GitLog",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))),
+            None => Err(self.to_bgit_error("No operation specified for GitLog")),
         }
     }
 }
@@ -90,53 +72,25 @@ impl AtomicEvent for GitLog {
 impl GitLog {
     fn check_sole_contributor_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
         // Get current user's configuration
-        let config = repo.config().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository config: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let config = repo
+            .config()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository config: {e}")))?;
 
-        let current_user_name = config.get_string("user.name").map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get current user name: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let current_user_name = config
+            .get_string("user.name")
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get current user name: {e}")))?;
 
-        let current_user_email = config.get_string("user.email").map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get current user email: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let current_user_email = config
+            .get_string("user.email")
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get current user email: {e}")))?;
 
         // Collect all unique authors and committers
         let mut authors = HashSet::new();
         let mut committers = HashSet::new();
 
-        let mut revwalk = repo.revwalk().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to create revwalk: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut revwalk = repo
+            .revwalk()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to create revwalk: {e}")))?;
 
         // Try to push HEAD to revwalk
         match revwalk.push_head() {
@@ -154,39 +108,17 @@ impl GitLog {
                 return Ok(true);
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to push HEAD to revwalk: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to push HEAD to revwalk: {e}")));
             }
         }
 
         for oid_result in revwalk {
-            let oid = oid_result.map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get commit OID: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            let oid = oid_result
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get commit OID: {e}")))?;
 
-            let commit = repo.find_commit(oid).map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            let commit = repo
+                .find_commit(oid)
+                .map_err(|e| self.to_bgit_error(&format!("Failed to find commit: {e}")))?;
 
             // Get author information
             let author = commit.author();

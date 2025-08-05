@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::AtomicEvent;
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
+use crate::bgit_error::BGitError;
 use crate::rules::Rule;
 use git2::{Cred, CredentialType, Repository};
 
@@ -38,31 +38,14 @@ impl AtomicEvent for GitPull {
     }
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         // Discover the repository starting from the current directory
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to discover repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to discover repository: {e}")))?;
 
         // Get the current branch - handle unborn branch case
         let branch_name = match repo.head() {
             Ok(head) => head
                 .shorthand()
-                .ok_or_else(|| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        "Failed to get branch name",
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?
+                .ok_or_else(|| self.to_bgit_error("Failed to get branch name"))?
                 .to_string(),
             Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
                 // In unborn branch state, we can only fetch (no merge/rebase possible)
@@ -70,14 +53,7 @@ impl AtomicEvent for GitPull {
                 return self.fetch_only(&repo);
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to get HEAD reference: {e}")));
             }
         };
 
@@ -85,24 +61,10 @@ impl AtomicEvent for GitPull {
         let mut remote = match repo.find_remote("origin") {
             Ok(remote) => remote,
             Err(e) if e.code() == git2::ErrorCode::NotFound => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>"));
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find remote 'origin': {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to find remote 'origin': {e}")));
             }
         };
 
@@ -111,14 +73,7 @@ impl AtomicEvent for GitPull {
 
         // Fetch all references to ensure we have the latest remote state
         remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to fetch from remote: {e}. Please check your SSH keys or authentication setup."),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
+            self.to_bgit_error(&format!("Failed to fetch from remote: {e}. Please check your SSH keys or authentication setup."))
         })?;
 
         // Try to find the remote reference with better error handling
@@ -160,14 +115,7 @@ impl AtomicEvent for GitPull {
                 ))
             })
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find remote reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to find remote reference: {e}"))
             })?;
 
         if self.rebase {
@@ -191,40 +139,15 @@ impl GitPull {
         repo: &Repository,
         remote_ref: &git2::Reference,
     ) -> Result<(), Box<BGitError>> {
-        let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get remote commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        let remote_commit = remote_ref
+            .peel_to_commit()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
 
         let head_commit = repo
             .head()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD reference: {e}")))?
             .peel_to_commit()
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD commit: {e}")))?;
 
         // Check if we're already up to date
         if head_commit.id() == remote_commit.id() {
@@ -234,16 +157,7 @@ impl GitPull {
         // Check if remote is ancestor of head (nothing to rebase)
         let merge_base = repo
             .merge_base(head_commit.id(), remote_commit.id())
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find merge base: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to find merge base: {e}")))?;
 
         if merge_base == remote_commit.id() {
             return Ok(());
@@ -255,13 +169,8 @@ impl GitPull {
         let upstream_annotated = repo
             .find_annotated_commit(remote_commit.id())
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to create annotated commit for upstream: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
+                self.to_bgit_error(&format!(
+                    "Failed to create annotated commit for upstream: {e}"
                 ))
             })?;
 
@@ -273,14 +182,7 @@ impl GitPull {
         let mut rebase = repo
             .rebase(None, Some(&upstream_annotated), None, None)
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to start rebase: {e}. This might indicate conflicts or uncommitted changes."),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to start rebase: {e}. This might indicate conflicts or uncommitted changes."))
             })?;
 
         // Process rebase operations
@@ -289,76 +191,36 @@ impl GitPull {
             operation_count += 1;
 
             // Check if there are conflicts
-            let index = repo.index().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get repository index: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let index = repo
+                .index()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get repository index: {e}")))?;
 
             if index.has_conflicts() {
                 // Abort the rebase to prevent data loss
                 rebase.abort().map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to abort rebase after conflicts: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
+                    self.to_bgit_error(&format!("Failed to abort rebase after conflicts: {e}"))
                 })?;
 
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Rebase conflicts detected. The rebase has been aborted to prevent data loss. Please resolve conflicts manually and retry.",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Rebase conflicts detected. The rebase has been aborted to prevent data loss. Please resolve conflicts manually and retry."));
             }
 
             // Get signature for committing
-            let signature = repo.signature().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get signature: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let signature = repo
+                .signature()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get signature: {e}")))?;
 
             // Commit the rebased operation
             let _commit_id = rebase.commit(None, &signature, None).map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to commit during rebase operation {operation_count}: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
+                self.to_bgit_error(&format!(
+                    "Failed to commit during rebase operation {operation_count}: {e}"
                 ))
             })?;
         }
 
         // Finish the rebase
-        rebase.finish(None).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to finish rebase: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        rebase
+            .finish(None)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to finish rebase: {e}")))?;
 
         Ok(())
     }
@@ -368,40 +230,18 @@ impl GitPull {
         repo: &Repository,
         remote_ref: &git2::Reference,
     ) -> Result<(), Box<BGitError>> {
-        let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get remote commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        let remote_commit = remote_ref
+            .peel_to_commit()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
 
         // Get head commit - this should exist since merge is only called when HEAD exists
         let head_commit = {
-            let head = repo.head().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let head = repo
+                .head()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD reference: {e}")))?;
 
-            head.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?
+            head.peel_to_commit()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD commit: {e}")))?
         };
 
         // Check if we're already up to date
@@ -412,16 +252,7 @@ impl GitPull {
         // Find merge base between local and remote commits
         let merge_base = repo
             .merge_base(head_commit.id(), remote_commit.id())
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find merge base: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to find merge base: {e}")))?;
 
         // If remote commit is ancestor of head, we're already up to date
         if merge_base == remote_commit.id() {
@@ -432,50 +263,22 @@ impl GitPull {
         if merge_base == head_commit.id() {
             // Get HEAD reference for fast-forward update
             let mut head_ref = repo.head().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference for fast-forward: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
+                self.to_bgit_error(&format!(
+                    "Failed to get HEAD reference for fast-forward: {e}"
                 ))
             })?;
 
             head_ref
                 .set_target(remote_commit.id(), "Fast-forward merge")
-                .map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to fast-forward: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
+                .map_err(|e| self.to_bgit_error(&format!("Failed to fast-forward: {e}")))?;
 
             // Update working directory
             repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
                 .map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to checkout after fast-forward: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
+                    self.to_bgit_error(&format!("Failed to checkout after fast-forward: {e}"))
                 })?;
         } else {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                "Merge conflicts detected - manual resolution required",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            )));
+            return Err(self.to_bgit_error("Merge conflicts detected - manual resolution required"));
         }
 
         Ok(())
@@ -626,24 +429,10 @@ impl GitPull {
         let mut remote = match repo.find_remote("origin") {
             Ok(remote) => remote,
             Err(e) if e.code() == git2::ErrorCode::NotFound => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>"));
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find remote 'origin': {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to find remote 'origin': {e}")));
             }
         };
 
@@ -652,14 +441,7 @@ impl GitPull {
 
         // Fetch all references to update remote tracking branches
         remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to fetch from remote: {e}. Please check your SSH keys or authentication setup."),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
+            self.to_bgit_error(&format!("Failed to fetch from remote: {e}. Please check your SSH keys or authentication setup."))
         })?;
 
         println!(

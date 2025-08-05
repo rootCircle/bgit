@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{Repository, ResetType, build::CheckoutBuilder};
 use std::path::Path;
 
@@ -50,14 +47,7 @@ impl AtomicEvent for GitRestore {
         let restore_mode = if let Some(mode) = &self.mode {
             mode
         } else {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                "Restore mode not specified for git restore operation",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            )));
+            return Err(self.to_bgit_error("Restore mode not specified for git restore operation"));
         };
         match restore_mode {
             RestoreMode::RestoreAllUnstaged => self.restore_all_unstaged(),
@@ -77,52 +67,23 @@ impl GitRestore {
     /// Restore all unstaged changes (equivalent to `git restore .`)
     fn restore_all_unstaged(&self) -> Result<bool, Box<BGitError>> {
         // Open the repository at the current directory
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         // Get the index (staging area)
-        let mut index = repo.index().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut index = repo
+            .index()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository index: {e}")))?;
 
         // Write the index as a tree
-        let index_tree_oid = index.write_tree().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to write index tree: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let index_tree_oid = index
+            .write_tree()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to write index tree: {e}")))?;
 
         // Get the tree object from the index
-        let index_tree = repo.find_tree(index_tree_oid).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to find index tree: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let index_tree = repo
+            .find_tree(index_tree_oid)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to find index tree: {e}")))?;
 
         // Set up checkout options to force overwrite working directory
         let mut checkout_opts = CheckoutBuilder::new();
@@ -133,13 +94,8 @@ impl GitRestore {
         // Checkout the index tree to working directory
         repo.checkout_tree(index_tree.as_object(), Some(&mut checkout_opts))
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to checkout index tree to working directory: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
+                self.to_bgit_error(&format!(
+                    "Failed to checkout index tree to working directory: {e}"
                 ))
             })?;
 
@@ -149,63 +105,25 @@ impl GitRestore {
     /// Unstage all files (equivalent to `git restore --staged .`)
     fn unstage_all_files(&self) -> Result<bool, Box<BGitError>> {
         // Open the repository at the current directory
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         // Get HEAD commit - handle unborn branch case
         let head_commit = match repo.head() {
-            Ok(head) => head.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?,
+            Ok(head) => head
+                .peel_to_commit()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD commit: {e}")))?,
             Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Cannot restore staged files in unborn branch (no commits exist yet). Use 'git reset' or remove files from staging manually.",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Cannot restore staged files in unborn branch (no commits exist yet). Use 'git reset' or remove files from staging manually."));
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to get HEAD: {e}")));
             }
         };
 
         // Reset index to HEAD (unstage all files)
         repo.reset(head_commit.as_object(), ResetType::Mixed, None)
-            .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to unstage files: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?;
+            .map_err(|e| self.to_bgit_error(&format!("Failed to unstage files: {e}")))?;
 
         Ok(true)
     }

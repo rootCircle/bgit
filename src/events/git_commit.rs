@@ -1,9 +1,6 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
-use git2::Repository;
+use crate::{bgit_error::BGitError, rules::Rule};
+use git2::{Commit, Repository};
 use std::path::Path;
 
 pub(crate) struct GitCommit {
@@ -42,22 +39,20 @@ impl AtomicEvent for GitCommit {
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         let message = match &self.commit_message {
-            Some(msg) => msg.clone(),
+            Some(msg) => {
+                if msg.trim().is_empty() {
+                    return Err(self.to_bgit_error("Commit message cannot be empty."));
+                }
+                msg.clone()
+            }
             None => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
+                return Err(self.to_bgit_error(
                     "No commit message provided. Use with_message() to set a commit message.",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                ));
             }
         };
 
-        self.commit_changes(&message)?;
-
-        Ok(true)
+        self.commit_changes(&message)
     }
 }
 
@@ -67,118 +62,61 @@ impl GitCommit {
         self
     }
 
-    /// Commit the staged changes with the provided message
-    fn commit_changes(&self, message: &str) -> Result<(), Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+    fn commit_changes(&self, message: &str) -> Result<bool, Box<BGitError>> {
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
-        // Get the current signature (author/committer)
-        let signature = repo.signature().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get signature: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let signature = repo
+            .signature()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get signature: {e}")))?;
 
-        // Get the current HEAD commit - handle unborn branch case
-        let parent_commit = match repo.head() {
-            Ok(head) => Some(head.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
-            })?),
-            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
-                // First commit in repository - no parent
-                None
-            }
+        let mut index = repo
+            .index()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository index: {e}")))?;
+
+        if index.has_conflicts() {
+            return Err(self.to_bgit_error(
+                "Merge conflicts found in index. Please resolve them before committing.",
+            ));
+        }
+
+        let tree_id = index
+            .write_tree()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to write tree: {e}")))?;
+
+        let tree = repo
+            .find_tree(tree_id)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to find tree: {e}")))?;
+
+        let parent_commit: Option<Commit> = match repo.head() {
+            Ok(head) => Some(
+                head.peel_to_commit()
+                    .map_err(|e| self.to_bgit_error(&format!("Failed to get HEAD commit: {e}")))?,
+            ),
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => None,
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to get HEAD reference: {e}")));
             }
         };
 
-        // Get the repository index and create a tree from it
-        let mut index = repo.index().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository index: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        if let Some(parent) = &parent_commit {
+            if parent.tree_id() == tree.id() {
+                return Ok(false);
+            }
+        }
 
-        let tree_id = index.write_tree().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to write tree: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        let tree = repo.find_tree(tree_id).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to find tree: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
-
-        // Create the commit with appropriate parents
-        let parents: Vec<&git2::Commit> = match &parent_commit {
-            Some(commit) => vec![commit],
-            None => vec![], // No parents for initial commit
-        };
+        let parents: Vec<&Commit> = parent_commit.iter().collect();
 
         repo.commit(
-            Some("HEAD"), // Update HEAD
-            &signature,   // Author
-            &signature,   // Committer
-            message,      // Commit message
-            &tree,        // Tree
-            &parents,     // Parents
+            Some("HEAD"),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &parents,
         )
-        .map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to create commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        .map_err(|e| self.to_bgit_error(&format!("Failed to create commit: {e}")))?;
 
-        Ok(())
+        Ok(true)
     }
 }

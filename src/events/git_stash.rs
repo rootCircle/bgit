@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{Repository, StashApplyOptions};
 use std::path::Path;
 
@@ -62,27 +59,12 @@ impl AtomicEvent for GitStash {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        let mut repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        let mut repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         match &self.operation {
             Some(StashOperation::Pop) => self.pop_stash_impl(&mut repo),
-            None => Err(Box::new(BGitError::new(
-                "BGitError",
-                "No stash operation defined",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))),
+            None => Err(self.to_bgit_error("No stash operation defined")),
         }
     }
 }
@@ -98,14 +80,7 @@ impl GitStash {
 
         repo.stash_pop(index, Some(&mut apply_options))
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to pop stash at index {index}: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_EVENT,
-                    &self.name,
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to pop stash at index {index}: {e}"))
             })?;
 
         Ok(true)
@@ -126,26 +101,11 @@ impl GitStash {
             }
         };
 
-        repo.stash_foreach(&mut callback).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to check stash existence: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            ))
-        })?;
+        repo.stash_foreach(&mut callback)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to check stash existence: {e}")))?;
 
         if !stash_exists {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                &format!("Stash at index {index} does not exist"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                &self.name,
-                NO_RULE,
-            )));
+            return Err(self.to_bgit_error(&format!("Stash at index {index} does not exist")));
         }
 
         Ok(())

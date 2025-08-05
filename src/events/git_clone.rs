@@ -1,5 +1,5 @@
 use super::AtomicEvent;
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
+use crate::bgit_error::BGitError;
 use crate::rules::Rule;
 use git2::{Cred, CredentialType};
 use std::env;
@@ -40,27 +40,13 @@ impl AtomicEvent for GitClone {
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         // Check if URL is set
         if self.url.is_empty() {
-            return Err(Box::new(BGitError::new(
-                "BGitError",
-                "Repository URL is not set",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            )));
+            return Err(self.to_bgit_error("Repository URL is not set"));
         }
         let url = &self.url;
         let repo_name = match url.split("/").last() {
             Some(repo_name) => repo_name.strip_suffix(".git").unwrap_or(repo_name),
             None => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Failed to get repository name from URL",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Failed to get repository name from URL"));
             }
         };
 
@@ -72,14 +58,7 @@ impl AtomicEvent for GitClone {
         builder.fetch_options(fetch_options);
 
         builder.clone(&self.url, Path::new(repo_name)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to clone repository: {e}. Please check your SSH keys or authentication setup."),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
+            self.to_bgit_error(&format!("Failed to clone repository: {e}. Please check your SSH keys or authentication setup."))
         })?;
 
         self.update_cwd_path()?;
@@ -98,27 +77,13 @@ impl GitClone {
         let repo_name = match self.url.split("/").last() {
             Some(repo_name) => repo_name.strip_suffix(".git").unwrap_or(repo_name),
             None => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Failed to get repository name from URL",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Failed to get repository name from URL"));
             }
         };
 
         match env::set_current_dir(repo_name) {
             Ok(_) => Ok(()),
-            Err(_) => Err(Box::new(BGitError::new(
-                "Failed to update current working directory path",
-                "update_cwd_path",
-                BGitErrorWorkflowType::PromptStep,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))),
+            Err(_) => Err(self.to_bgit_error("Failed to update current working directory path")),
         }
     }
 

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::AtomicEvent;
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
+use crate::bgit_error::BGitError;
 use crate::rules::Rule;
 use git2::{Cred, CredentialType, Repository};
 use log::debug;
@@ -41,54 +41,23 @@ impl AtomicEvent for GitPush {
     }
 
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to discover repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to discover repository: {e}")))?;
 
         // Get the current branch - handle unborn branch case
         let (head, branch_name) = match repo.head() {
             Ok(head) => {
                 let branch_name = head
                     .shorthand()
-                    .ok_or_else(|| {
-                        Box::new(BGitError::new(
-                            "BGitError",
-                            "Failed to get branch name",
-                            BGitErrorWorkflowType::AtomicEvent,
-                            NO_STEP,
-                            self.get_name(),
-                            NO_RULE,
-                        ))
-                    })?
+                    .ok_or_else(|| self.to_bgit_error("Failed to get branch name"))?
                     .to_string();
                 (head, branch_name)
             }
             Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Cannot push from unborn branch (no commits to push). Create your first commit before pushing.",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Cannot push from unborn branch (no commits to push). Create your first commit before pushing."));
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get HEAD reference: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to get HEAD reference: {e}")));
             }
         };
 
@@ -96,24 +65,10 @@ impl AtomicEvent for GitPush {
         let mut remote = match repo.find_remote("origin") {
             Ok(remote) => remote,
             Err(e) if e.code() == git2::ErrorCode::NotFound => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>"));
             }
             Err(e) => {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find remote 'origin': {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error(&format!("Failed to find remote 'origin': {e}")));
             }
         };
 
@@ -145,14 +100,7 @@ impl AtomicEvent for GitPush {
         remote
             .push(&refspecs, Some(&mut push_options))
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to push to remote: {e}. Please check your SSH keys or authentication setup."),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to push to remote: {e}. Please check your SSH keys or authentication setup."))
             })?;
 
         // Set upstream if requested and push was successful
@@ -182,29 +130,15 @@ impl GitPush {
         head: &git2::Reference,
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
-        let local_commit = head.peel_to_commit().map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get local commit: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
-        })?;
+        let local_commit = head
+            .peel_to_commit()
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get local commit: {e}")))?;
 
         // Check if remote branch exists and validate
         if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
-            let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get remote commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let remote_commit = remote_ref
+                .peel_to_commit()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
 
             if local_commit.id() == remote_commit.id() {
                 debug!("Local branch is up to date with remote, no force-with-lease needed");
@@ -224,26 +158,13 @@ impl GitPush {
         // Force-with-lease using the current remote tracking branch as the expected value
         if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
             let remote_oid = remote_ref.target().ok_or_else(|| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    "Failed to get remote reference target for force-with-lease",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
+                self.to_bgit_error("Failed to get remote reference target for force-with-lease")
             })?;
 
             Ok(format!("+{base_refspec}^{{{remote_oid}}}"))
         } else {
-            Err(Box::new(BGitError::new(
-                "BGitError",
-                "Cannot perform force-with-lease: no remote tracking branch found",
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            )))
+            Err(self
+                .to_bgit_error("Cannot perform force-with-lease: no remote tracking branch found"))
         }
     }
 
@@ -254,27 +175,13 @@ impl GitPush {
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
         if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
-            let local_commit = head.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get local commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let local_commit = head
+                .peel_to_commit()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get local commit: {e}")))?;
 
-            let remote_commit = remote_ref.peel_to_commit().map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to get remote commit: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
-            })?;
+            let remote_commit = remote_ref
+                .peel_to_commit()
+                .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
 
             // If commits are the same, we're up to date
             if local_commit.id() == remote_commit.id() {
@@ -284,26 +191,10 @@ impl GitPush {
             // Check if local is behind remote
             let merge_base = repo
                 .merge_base(local_commit.id(), remote_commit.id())
-                .map_err(|e| {
-                    Box::new(BGitError::new(
-                        "BGitError",
-                        &format!("Failed to find merge base: {e}"),
-                        BGitErrorWorkflowType::AtomicEvent,
-                        NO_STEP,
-                        self.get_name(),
-                        NO_RULE,
-                    ))
-                })?;
+                .map_err(|e| self.to_bgit_error(&format!("Failed to find merge base: {e}")))?;
 
             if merge_base == local_commit.id() && local_commit.id() != remote_commit.id() {
-                return Err(Box::new(BGitError::new(
-                    "BGitError",
-                    "Local branch is behind remote. Pull changes first",
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                )));
+                return Err(self.to_bgit_error("Local branch is behind remote. Pull changes first"));
             }
         }
 
@@ -318,26 +209,12 @@ impl GitPush {
         let mut branch = repo
             .find_branch(branch_name, git2::BranchType::Local)
             .map_err(|e| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    &format!("Failed to find local branch {branch_name}: {e}"),
-                    BGitErrorWorkflowType::AtomicEvent,
-                    NO_STEP,
-                    self.get_name(),
-                    NO_RULE,
-                ))
+                self.to_bgit_error(&format!("Failed to find local branch {branch_name}: {e}"))
             })?;
 
         let upstream_name = format!("origin/{branch_name}");
         branch.set_upstream(Some(&upstream_name)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to set upstream to {upstream_name}: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_STEP,
-                self.get_name(),
-                NO_RULE,
-            ))
+            self.to_bgit_error(&format!("Failed to set upstream to {upstream_name}: {e}"))
         })?;
 
         Ok(())
