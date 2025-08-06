@@ -54,7 +54,7 @@ impl AtomicEvent for GitStatus {
     fn raw_execute(&self) -> Result<bool, Box<BGitError>> {
         match self.mode {
             StatusMode::CheckOnly => {
-                let has_files = has_unstaged_or_new_files()?;
+                let has_files = self.has_unstaged_or_new_files()?;
                 if has_files {
                     println!("You have unstaged or new files.");
                 } else {
@@ -66,158 +66,160 @@ impl AtomicEvent for GitStatus {
     }
 }
 
-/// Detects unstaged files (modified tracked files) or new files (untracked)
-pub fn has_unstaged_or_new_files() -> Result<bool, Box<BGitError>> {
-    let repo = Repository::discover(Path::new(".")).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to open repository: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "has_unstaged_or_new_files",
-            NO_RULE,
-        ))
-    })?;
+impl GitStatus {
+    /// Detects unstaged files (modified tracked files) or new files (untracked)
+    pub fn has_unstaged_or_new_files(&self) -> Result<bool, Box<BGitError>> {
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to open repository: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "has_unstaged_or_new_files",
+                NO_RULE,
+            ))
+        })?;
 
-    let mut opts = StatusOptions::new();
-    opts.include_untracked(true)
-        .include_ignored(false)
-        .recurse_untracked_dirs(true);
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true)
+            .include_ignored(false)
+            .recurse_untracked_dirs(true);
 
-    let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to get repository status: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "has_unstaged_or_new_files",
-            NO_RULE,
-        ))
-    })?;
+        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to get repository status: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "has_unstaged_or_new_files",
+                NO_RULE,
+            ))
+        })?;
 
-    for entry in statuses.iter() {
-        let status = entry.status();
+        for entry in statuses.iter() {
+            let status = entry.status();
 
-        // Check for working tree changes (unstaged)
-        if status.intersects(
-            Status::WT_MODIFIED
-                | Status::WT_DELETED
-                | Status::WT_TYPECHANGE
-                | Status::WT_RENAMED
-                | Status::WT_NEW, // This includes untracked files
-        ) {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
-}
-
-/// Get list of unstaged and new files with their status descriptions
-pub fn get_unstaged_files_list() -> Result<Vec<FileStatus>, Box<BGitError>> {
-    let repo = Repository::discover(Path::new(".")).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to open repository: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "get_unstaged_files_list",
-            NO_RULE,
-        ))
-    })?;
-
-    let mut opts = StatusOptions::new();
-    opts.include_untracked(true)
-        .include_ignored(false)
-        .recurse_untracked_dirs(true);
-
-    let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to get repository status: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "get_unstaged_files_list",
-            NO_RULE,
-        ))
-    })?;
-
-    let mut unstaged_files = Vec::new();
-
-    for entry in statuses.iter() {
-        let status = entry.status();
-        let file_path = entry.path().unwrap_or("").to_string();
-
-        // Check for working tree changes (unstaged)
-        if status.intersects(
-            Status::WT_MODIFIED
-                | Status::WT_DELETED
-                | Status::WT_TYPECHANGE
-                | Status::WT_RENAMED
-                | Status::WT_NEW,
-        ) {
-            let status_type = match status {
-                s if s.contains(Status::WT_NEW) => "New file",
-                s if s.contains(Status::WT_MODIFIED) => "Modified",
-                s if s.contains(Status::WT_DELETED) => "Deleted",
-                s if s.contains(Status::WT_TYPECHANGE) => "Type changed",
-                s if s.contains(Status::WT_RENAMED) => "Renamed",
-                _ => "Unknown",
+            // Check for working tree changes (unstaged)
+            if status.intersects(
+                Status::WT_MODIFIED
+                    | Status::WT_DELETED
+                    | Status::WT_TYPECHANGE
+                    | Status::WT_RENAMED
+                    | Status::WT_NEW, // This includes untracked files
+            ) {
+                return Ok(true);
             }
-            .to_string();
-
-            unstaged_files.push(FileStatus {
-                path: file_path,
-                status_type,
-            });
         }
+
+        Ok(false)
     }
 
-    Ok(unstaged_files)
-}
+    /// Get list of unstaged and new files with their status descriptions
+    pub fn get_unstaged_files_list(&self) -> Result<Vec<FileStatus>, Box<BGitError>> {
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to open repository: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "get_unstaged_files_list",
+                NO_RULE,
+            ))
+        })?;
 
-pub fn has_staged_files() -> Result<bool, Box<BGitError>> {
-    let repo = Repository::discover(Path::new(".")).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to open repository: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "has_staged_files",
-            NO_RULE,
-        ))
-    })?;
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true)
+            .include_ignored(false)
+            .recurse_untracked_dirs(true);
 
-    let mut opts = StatusOptions::new();
-    opts.include_untracked(true)
-        .include_ignored(false)
-        .recurse_untracked_dirs(true);
+        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to get repository status: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "get_unstaged_files_list",
+                NO_RULE,
+            ))
+        })?;
 
-    let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-        Box::new(BGitError::new(
-            "BGitError",
-            &format!("Failed to get repository status: {e}"),
-            BGitErrorWorkflowType::AtomicEvent,
-            NO_EVENT,
-            "has_staged_files",
-            NO_RULE,
-        ))
-    })?;
+        let mut unstaged_files = Vec::new();
 
-    for entry in statuses.iter() {
-        let status = entry.status();
+        for entry in statuses.iter() {
+            let status = entry.status();
+            let file_path = entry.path().unwrap_or("").to_string();
 
-        // Check for staged changes (index)
-        if status.intersects(
-            Status::INDEX_NEW
-                | Status::INDEX_MODIFIED
-                | Status::INDEX_DELETED
-                | Status::INDEX_RENAMED
-                | Status::INDEX_TYPECHANGE,
-        ) {
-            return Ok(true);
+            // Check for working tree changes (unstaged)
+            if status.intersects(
+                Status::WT_MODIFIED
+                    | Status::WT_DELETED
+                    | Status::WT_TYPECHANGE
+                    | Status::WT_RENAMED
+                    | Status::WT_NEW,
+            ) {
+                let status_type = match status {
+                    s if s.contains(Status::WT_NEW) => "New file",
+                    s if s.contains(Status::WT_MODIFIED) => "Modified",
+                    s if s.contains(Status::WT_DELETED) => "Deleted",
+                    s if s.contains(Status::WT_TYPECHANGE) => "Type changed",
+                    s if s.contains(Status::WT_RENAMED) => "Renamed",
+                    _ => "Unknown",
+                }
+                .to_string();
+
+                unstaged_files.push(FileStatus {
+                    path: file_path,
+                    status_type,
+                });
+            }
         }
+
+        Ok(unstaged_files)
     }
 
-    Ok(false)
+    pub fn has_staged_files(&self) -> Result<bool, Box<BGitError>> {
+        let repo = Repository::discover(Path::new(".")).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to open repository: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "has_staged_files",
+                NO_RULE,
+            ))
+        })?;
+
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true)
+            .include_ignored(false)
+            .recurse_untracked_dirs(true);
+
+        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
+            Box::new(BGitError::new(
+                "BGitError",
+                &format!("Failed to get repository status: {e}"),
+                BGitErrorWorkflowType::AtomicEvent,
+                NO_EVENT,
+                "has_staged_files",
+                NO_RULE,
+            ))
+        })?;
+
+        for entry in statuses.iter() {
+            let status = entry.status();
+
+            // Check for staged changes (index)
+            if status.intersects(
+                Status::INDEX_NEW
+                    | Status::INDEX_MODIFIED
+                    | Status::INDEX_DELETED
+                    | Status::INDEX_RENAMED
+                    | Status::INDEX_TYPECHANGE,
+            ) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
 }

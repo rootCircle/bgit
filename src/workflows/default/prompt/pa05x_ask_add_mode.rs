@@ -83,7 +83,7 @@ impl PromptStep for AskAddMode {
 
 impl AskAddMode {
     fn prompt_file_selection(&self) -> Result<Vec<String>, Box<BGitError>> {
-        let unstaged_files = git_status::get_unstaged_files_list()?;
+        let unstaged_files = git_status::GitStatus::new().get_unstaged_files_list()?;
 
         if unstaged_files.is_empty() {
             println!("No unstaged files found.");
