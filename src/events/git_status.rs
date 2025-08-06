@@ -1,8 +1,5 @@
 use super::AtomicEvent;
-use crate::{
-    bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
-    rules::Rule,
-};
+use crate::{bgit_error::BGitError, rules::Rule};
 use git2::{Repository, Status, StatusOptions};
 use std::path::Path;
 
@@ -69,32 +66,17 @@ impl AtomicEvent for GitStatus {
 impl GitStatus {
     /// Detects unstaged files (modified tracked files) or new files (untracked)
     pub fn has_unstaged_or_new_files(&self) -> Result<bool, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "has_unstaged_or_new_files",
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true)
             .include_ignored(false)
             .recurse_untracked_dirs(true);
 
-        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository status: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "has_unstaged_or_new_files",
-                NO_RULE,
-            ))
-        })?;
+        let statuses = repo
+            .statuses(Some(&mut opts))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository status: {e}")))?;
 
         for entry in statuses.iter() {
             let status = entry.status();
@@ -116,32 +98,17 @@ impl GitStatus {
 
     /// Get list of unstaged and new files with their status descriptions
     pub fn get_unstaged_files_list(&self) -> Result<Vec<FileStatus>, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "get_unstaged_files_list",
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true)
             .include_ignored(false)
             .recurse_untracked_dirs(true);
 
-        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository status: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "get_unstaged_files_list",
-                NO_RULE,
-            ))
-        })?;
+        let statuses = repo
+            .statuses(Some(&mut opts))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository status: {e}")))?;
 
         let mut unstaged_files = Vec::new();
 
@@ -178,32 +145,17 @@ impl GitStatus {
     }
 
     pub fn has_staged_files(&self) -> Result<bool, Box<BGitError>> {
-        let repo = Repository::discover(Path::new(".")).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to open repository: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "has_staged_files",
-                NO_RULE,
-            ))
-        })?;
+        let repo = Repository::discover(Path::new("."))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to open repository: {e}")))?;
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true)
             .include_ignored(false)
             .recurse_untracked_dirs(true);
 
-        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| {
-            Box::new(BGitError::new(
-                "BGitError",
-                &format!("Failed to get repository status: {e}"),
-                BGitErrorWorkflowType::AtomicEvent,
-                NO_EVENT,
-                "has_staged_files",
-                NO_RULE,
-            ))
-        })?;
+        let statuses = repo
+            .statuses(Some(&mut opts))
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get repository status: {e}")))?;
 
         for entry in statuses.iter() {
             let status = entry.status();
