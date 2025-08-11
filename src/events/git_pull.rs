@@ -209,12 +209,28 @@ impl GitPull {
                 .signature()
                 .map_err(|e| self.to_bgit_error(&format!("Failed to get signature: {e}")))?;
 
-            // Commit the rebased operation
-            let _commit_id = rebase.commit(None, &signature, None).map_err(|e| {
-                self.to_bgit_error(&format!(
-                    "Failed to commit during rebase operation {operation_count}: {e}"
-                ))
-            })?;
+            // Commit the rebased operation. If the patch was already applied, skip committing and continue.
+            match rebase.commit(None, &signature, None) {
+                Ok(_commit_id) => {
+                    // committed successfully
+                }
+                Err(err) => {
+                    // libgit2 returns ErrorCode::Applied when a patch produces no changes / already applied
+                    if err.code() == git2::ErrorCode::Applied
+                        || err
+                            .message()
+                            .to_lowercase()
+                            .contains("already been applied")
+                    {
+                        // Nothing to commit for this step; continue to next operation
+                        continue;
+                    }
+
+                    return Err(self.to_bgit_error(&format!(
+                        "Failed to commit during rebase operation {operation_count}: {err}"
+                    )));
+                }
+            }
         }
 
         // Finish the rebase
