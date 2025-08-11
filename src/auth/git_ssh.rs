@@ -1,6 +1,6 @@
 use git2::{Cred, CredentialType, Error, ErrorClass, ErrorCode};
 use log::debug;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::auth::ssh_utils::add_key_interactive;
@@ -84,13 +84,13 @@ fn ensure_agent_ready() -> Result<(), Error> {
     {
         use std::os::unix::fs::FileTypeExt;
 
-        let home = std::env::var("HOME").unwrap_or_else(|_| String::from("."));
-        let socket_path = Path::new(&home)
-            .join(".ssh")
-            .join(SSH_AGENT_SOCKET_BASENAME);
+        let ssh_dir = home::home_dir()
+            .map(|p| p.join(".ssh"))
+            .unwrap_or_else(|| PathBuf::from(".ssh"));
+        let socket_path = ssh_dir.join(SSH_AGENT_SOCKET_BASENAME);
 
         // Create ~/.ssh if needed
-        if let Err(e) = std::fs::create_dir_all(Path::new(&home).join(".ssh")) {
+        if let Err(e) = std::fs::create_dir_all(&ssh_dir) {
             debug!("Failed to ensure ~/.ssh dir exists: {e}");
         }
 
@@ -103,10 +103,8 @@ fn ensure_agent_ready() -> Result<(), Error> {
             return Ok(());
         }
 
-        // Otherwise, use our fixed socket path
-        unsafe {
-            std::env::set_var("SSH_AUTH_SOCK", &socket_path);
-        }
+        // Otherwise, try to use our fixed socket path
+        unsafe { std::env::set_var("SSH_AUTH_SOCK", &socket_path) };
 
         let alive = if let Ok(md) = std::fs::metadata(&socket_path)
             && md.file_type().is_socket()
@@ -125,16 +123,30 @@ fn ensure_agent_ready() -> Result<(), Error> {
         }
 
         if !alive {
-            start_agent_detached(Some(&socket_path))?;
-            // Small wait loop for socket readiness
-            for _ in 0..20 {
-                if std::fs::metadata(&socket_path)
-                    .map(|m| m.file_type().is_socket())
-                    .unwrap_or(false)
-                {
-                    break;
+            // Try to start agent binding to our socket; if that fails or socket doesn't appear, fallback to parsing env
+            if start_agent_detached(Some(&socket_path)).is_err() || {
+                // Wait briefly for socket readiness
+                let mut ready = false;
+                for _ in 0..20 {
+                    if std::fs::metadata(&socket_path)
+                        .map(|m| m.file_type().is_socket())
+                        .unwrap_or(false)
+                    {
+                        ready = true;
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                !ready
+            } {
+                // Fallback: spawn ssh-agent normally and parse SSH_AUTH_SOCK from its output
+                #[cfg(unix)]
+                {
+                    if let Ok((sock, pid)) = start_agent_and_parse_env() {
+                        unsafe { std::env::set_var("SSH_AUTH_SOCK", &sock) };
+                        unsafe { std::env::set_var("SSH_AGENT_PID", &pid) };
+                    }
+                }
             }
         }
 
@@ -169,25 +181,15 @@ fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
         };
 
         if let Some(sock) = socket {
-            // Use -a to bind to our fixed socket when supported
-            let supports_a = Command::new("ssh-agent")
-                .arg("-h")
-                .stdout(Stdio::null())
-                .stderr(Stdio::piped())
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-
-            if supports_a {
-                cmd.arg("-a").arg(sock);
-            }
+            // First try -a to bind to our fixed socket; if it fails, we'll fallback below
+            cmd.arg("-a").arg(sock);
             // Keep in foreground and let setsid/nohup detach it; discard stdio
             cmd.arg("-D");
         } else {
             cmd.arg("-D");
         }
 
-        let _child = cmd
+        let spawn_res = cmd
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -198,7 +200,28 @@ fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
                     ErrorClass::Net,
                     format!("Failed to spawn ssh-agent: {e}"),
                 )
-            })?;
+            });
+
+        if spawn_res.is_err() && socket.is_some() {
+            // Fallback: try without -a (older agents)
+            let mut fallback = if which::which("setsid").is_ok() {
+                let mut c = Command::new("setsid");
+                c.arg("ssh-agent");
+                c
+            } else if which::which("nohup").is_ok() {
+                let mut c = Command::new("nohup");
+                c.arg("ssh-agent");
+                c
+            } else {
+                Command::new("ssh-agent")
+            };
+            fallback.arg("-D");
+            let _ = fallback
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn();
+        }
 
         Ok(())
     }
@@ -225,11 +248,9 @@ fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
 fn add_all_ssh_keys() -> Result<(), Error> {
     debug!("Adding all SSH keys from .ssh folder to ssh-agent");
 
-    let home_dir = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| ".".to_string());
-
-    let ssh_dir = Path::new(&home_dir).join(".ssh");
+    let ssh_dir = home::home_dir()
+        .map(|p| p.join(".ssh"))
+        .unwrap_or_else(|| PathBuf::from(".ssh"));
 
     if !ssh_dir.exists() {
         debug!("SSH directory {ssh_dir:?} does not exist");
@@ -244,6 +265,16 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 
         if key_path.exists() {
             debug!("Found SSH key: {key_path:?}");
+            // Skip if it's not a regular file or if a corresponding .pub is being considered
+            if let Ok(md) = std::fs::metadata(&key_path)
+                && !md.is_file()
+            {
+                continue;
+            }
+            // Also skip accidental public key files
+            if key_path.extension().and_then(|s| s.to_str()) == Some("pub") {
+                continue;
+            }
 
             // First try a quick non-interactive add (for keys without passphrase)
             let quick_result = Command::new("ssh-add")
@@ -306,11 +337,9 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
     debug!("Trying SSH key files directly for user: {username}");
 
-    let home_dir = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| ".".to_string());
-
-    let ssh_dir = Path::new(&home_dir).join(".ssh");
+    let ssh_dir = home::home_dir()
+        .map(|p| p.join(".ssh"))
+        .unwrap_or_else(|| PathBuf::from(".ssh"));
     let key_files = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
 
     for key_name in &key_files {
@@ -363,16 +392,72 @@ fn agent_identities_count() -> Result<usize, Error> {
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let count = stdout.lines().count();
+        // Filter out informational lines and blanks; count actual keys
+        let count = stdout
+            .lines()
+            .filter(|l| !l.contains("The agent has no identities") && !l.trim().is_empty())
+            .count();
         Ok(count)
     } else {
-        Err(Error::new(
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("Could not open a connection to your authentication agent") {
+            Err(Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                "ssh-agent not reachable",
+            ))
+        } else {
+            Err(Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                format!("ssh-add -l failed: {stderr}"),
+            ))
+        }
+    }
+}
+
+#[cfg(unix)]
+fn start_agent_and_parse_env() -> Result<(String, String), Error> {
+    let output = Command::new("ssh-agent").output().map_err(|e| {
+        Error::new(
             ErrorCode::Auth,
             ErrorClass::Net,
-            format!(
-                "ssh-add -l failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        ))
+            format!("Failed to spawn ssh-agent: {e}"),
+        )
+    })?;
+    if !output.status.success() {
+        return Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "ssh-agent failed to start",
+        ));
     }
+    let out = String::from_utf8_lossy(&output.stdout);
+    let sock = out
+        .lines()
+        .find_map(|l| {
+            l.split_once("SSH_AUTH_SOCK=")
+                .and_then(|(_, r)| r.split(';').next())
+        })
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                "Failed to parse SSH_AUTH_SOCK",
+            )
+        })?;
+    let pid = out
+        .lines()
+        .find_map(|l| {
+            l.split_once("SSH_AGENT_PID=")
+                .and_then(|(_, r)| r.split(';').next())
+        })
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                "Failed to parse SSH_AGENT_PID",
+            )
+        })?;
+    Ok((sock.to_string(), pid.to_string()))
 }

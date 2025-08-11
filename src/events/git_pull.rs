@@ -119,6 +119,25 @@ impl AtomicEvent for GitPull {
                 self.to_bgit_error(&format!("Failed to find remote reference: {e}"))
             })?;
 
+        // Guard: if working directory has uncommitted changes, avoid destructive operations
+        if repo
+            .statuses(None)
+            .map_err(|e| self.to_bgit_error(&format!("Failed to get status: {e}")))?
+            .iter()
+            .any(|s| {
+                s.status().is_wt_modified()
+                    || s.status().is_index_modified()
+                    || s.status().is_wt_new()
+                    || s.status().is_wt_deleted()
+                    || s.status().is_index_deleted()
+                    || s.status().is_index_new()
+            })
+        {
+            return Err(self.to_bgit_error(
+                "Working tree has uncommitted changes. Please commit or stash before pulling.",
+            ));
+        }
+
         if self.rebase {
             self.execute_rebase(&repo, &remote_ref)?;
         } else {
@@ -290,10 +309,10 @@ impl GitPull {
                 .map_err(|e| self.to_bgit_error(&format!("Failed to fast-forward: {e}")))?;
 
             // Update working directory
-            repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
-                .map_err(|e| {
-                    self.to_bgit_error(&format!("Failed to checkout after fast-forward: {e}"))
-                })?;
+            // Use safe checkout; repository is clean per earlier check. No force by default.
+            repo.checkout_head(None).map_err(|e| {
+                self.to_bgit_error(&format!("Failed to checkout after fast-forward: {e}"))
+            })?;
         } else {
             return Err(self.to_bgit_error("Merge conflicts detected - manual resolution required"));
         }
