@@ -312,17 +312,17 @@ impl NoSecretsStaged {
                 }
 
                 // Apply entropy check if specified
-                if let Some(threshold) = pattern.entropy_threshold {
-                    if Self::calculate_entropy(secret_value) < threshold {
-                        continue;
-                    }
+                if let Some(threshold) = pattern.entropy_threshold
+                    && Self::calculate_entropy(secret_value) < threshold
+                {
+                    continue;
                 }
 
                 // Apply custom validation if specified
-                if let Some(validate_fn) = pattern.validate_fn {
-                    if !validate_fn(secret_value) {
-                        continue;
-                    }
+                if let Some(validate_fn) = pattern.validate_fn
+                    && !validate_fn(secret_value)
+                {
+                    continue;
                 }
 
                 // Avoid duplicate detections of the same type

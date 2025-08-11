@@ -99,10 +99,10 @@ impl GitCommit {
             }
         };
 
-        if let Some(parent) = &parent_commit {
-            if parent.tree_id() == tree.id() {
-                return Ok(false);
-            }
+        if let Some(parent) = &parent_commit
+            && parent.tree_id() == tree.id()
+        {
+            return Ok(false);
         }
 
         let parents: Vec<&Commit> = parent_commit.iter().collect();

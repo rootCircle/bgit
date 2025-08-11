@@ -84,21 +84,20 @@ impl Rule for NoLargeFile {
             let status = entry.status();
 
             // Check if file is staged or modified (but not ignored)
-            if status.contains(Status::INDEX_NEW)
+            if (status.contains(Status::INDEX_NEW)
                 || status.contains(Status::INDEX_MODIFIED)
                 || status.contains(Status::WT_NEW)
-                || status.contains(Status::WT_MODIFIED)
+                || status.contains(Status::WT_MODIFIED))
+                && let Ok(file_size) = Self::get_path_size(file_path)
             {
-                if let Ok(file_size) = Self::get_path_size(file_path) {
-                    total_size += file_size;
-                    file_count += 1;
-                    if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
-                        large_files.push(format!(
-                            "{} ({:.1} MB)",
-                            file_path,
-                            file_size as f64 / (1024.0 * 1024.0)
-                        ));
-                    }
+                total_size += file_size;
+                file_count += 1;
+                if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
+                    large_files.push(format!(
+                        "{} ({:.1} MB)",
+                        file_path,
+                        file_size as f64 / (1024.0 * 1024.0)
+                    ));
                 }
             }
         }
@@ -165,17 +164,16 @@ impl Rule for NoLargeFile {
 
             let status = entry.status();
 
-            if status.contains(Status::INDEX_NEW)
+            if (status.contains(Status::INDEX_NEW)
                 || status.contains(Status::INDEX_MODIFIED)
                 || status.contains(Status::WT_NEW)
-                || status.contains(Status::WT_MODIFIED)
+                || status.contains(Status::WT_MODIFIED))
+                && let Ok(file_size) = Self::get_path_size(file_path)
             {
-                if let Ok(file_size) = Self::get_path_size(file_path) {
-                    total_size += file_size;
-                    file_count += 1;
-                    if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
-                        large_files.push(file_path.to_string());
-                    }
+                total_size += file_size;
+                file_count += 1;
+                if file_size > self.threshold_bytes && !self.is_lfs_tracked(file_path)? {
+                    large_files.push(file_path.to_string());
                 }
             }
         }
@@ -316,10 +314,10 @@ impl NoLargeFile {
                 }
 
                 // Check wildcard patterns like *.mp4
-                if let Some(ext) = file_ext {
-                    if pattern == format!("*.{ext}") {
-                        return Ok(true);
-                    }
+                if let Some(ext) = file_ext
+                    && pattern == format!("*.{ext}")
+                {
+                    return Ok(true);
                 }
             }
         }

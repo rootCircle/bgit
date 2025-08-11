@@ -153,11 +153,11 @@ impl IsRepoSizeTooBig {
 
             if let Ok(refs) = repo.references() {
                 for reference in refs.flatten() {
-                    if let Some(target_oid) = reference.target() {
-                        if target_oid == *oid {
-                            is_referenced = true;
-                            break;
-                        }
+                    if let Some(target_oid) = reference.target()
+                        && target_oid == *oid
+                    {
+                        is_referenced = true;
+                        break;
                     }
                 }
             }
@@ -183,11 +183,11 @@ impl IsRepoSizeTooBig {
         }
 
         // Clean up the index
-        if let Ok(mut index) = repo.index() {
-            if index.read(true).is_ok() {
-                println!("Index refreshed");
-                cleanup_performed = true;
-            }
+        if let Ok(mut index) = repo.index()
+            && index.read(true).is_ok()
+        {
+            println!("Index refreshed");
+            cleanup_performed = true;
         }
 
         Ok(cleanup_performed)

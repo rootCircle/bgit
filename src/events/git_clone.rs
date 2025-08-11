@@ -178,10 +178,10 @@ impl GitClone {
                 }
 
                 // For GitHub, you might want to use a personal access token
-                if url.contains("github.com") {
-                    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-                        return Cred::userpass_plaintext("git", &token);
-                    }
+                if url.contains("github.com")
+                    && let Ok(token) = std::env::var("GITHUB_TOKEN")
+                {
+                    return Cred::userpass_plaintext("git", &token);
                 }
             }
 

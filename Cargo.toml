@@ -16,7 +16,7 @@ categories = [
     "development-tools",
 ]
 keywords = ["git", "beginner-friendly", "libgit-rs", "hooks", "smart-rules"]
-rust-version = "1.85"
+rust-version = "1.88"
 
 [dependencies]
 clap = { version = "4.5.43", features = ["derive"] }
