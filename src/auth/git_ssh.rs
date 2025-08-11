@@ -108,21 +108,20 @@ fn ensure_agent_ready() -> Result<(), Error> {
             std::env::set_var("SSH_AUTH_SOCK", &socket_path);
         }
 
-        let alive = || -> bool {
-            if let Ok(md) = std::fs::metadata(&socket_path) {
-                if md.file_type().is_socket() {
-                    // Probe agent via ssh-add -l
-                    return agent_identities_count().is_ok();
-                }
-            }
+        let alive = if let Ok(md) = std::fs::metadata(&socket_path)
+            && md.file_type().is_socket()
+        {
+            // Probe agent via ssh-add -l
+            agent_identities_count().is_ok()
+        } else {
             false
-        }();
+        };
 
         // Remove stale non-socket file
-        if let Ok(md) = std::fs::metadata(&socket_path) {
-            if !md.file_type().is_socket() {
-                let _ = std::fs::remove_file(&socket_path);
-            }
+        if let Ok(md) = std::fs::metadata(&socket_path)
+            && !md.file_type().is_socket()
+        {
+            let _ = std::fs::remove_file(&socket_path);
         }
 
         if !alive {

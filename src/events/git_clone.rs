@@ -1,6 +1,6 @@
 use super::AtomicEvent;
 use crate::auth::git_auth::setup_auth_callbacks;
-use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
+use crate::bgit_error::BGitError;
 use crate::rules::Rule;
 use std::env;
 use std::path::Path;

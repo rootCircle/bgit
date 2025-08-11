@@ -32,8 +32,8 @@ impl PromptStep for PullAndPush {
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
     ) -> Result<Step, Box<BGitError>> {
-    let mut git_pull = GitPull::new().with_rebase(true);
-    git_pull.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
+        let mut git_pull = GitPull::new().with_rebase(true);
+        git_pull.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
 
         match git_pull.execute() {
             Ok(_) => {
