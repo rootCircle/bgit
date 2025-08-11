@@ -2,10 +2,9 @@ use super::AtomicEvent;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
 use crate::rules::Rule;
-use git2::Repository;
+use git2::{Oid, Repository};
 use log::{debug, info};
 use std::path::Path;
-use std::process::Command;
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -75,34 +74,59 @@ impl AtomicEvent for GitPush {
         // Prepare push options with authentication and callbacks
         let mut push_options = Self::create_push_options();
 
-        // Validation
         if self.force_with_lease {
-            self.validate_force_with_lease(&repo, &head, &branch_name)?;
+            // Best-effort native force-with-lease emulation with libgit2:
+            // 1) Capture expected remote OID from tracking ref before fetching
+            let tracking_ref = format!("refs/remotes/{remote_name}/{branch_name}");
+            let expected_remote_oid = repo
+                .refname_to_id(&tracking_ref)
+                .unwrap_or_else(|_| Oid::zero());
+
+            // 2) Fetch latest state for the branch to update tracking ref
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.remote_callbacks(setup_auth_callbacks());
+            let fetch_refspec = format!(
+                "refs/heads/{0}:refs/remotes/{1}/{0}",
+                branch_name, remote_name
+            );
+            remote
+                .fetch(&[fetch_refspec], Some(&mut fetch_opts), None)
+                .map_err(|e| self.to_bgit_error(&format!("Failed to fetch from remote: {e}")))?;
+
+            // 3) Compare actual vs expected; if diverged, abort
+            let actual_remote_oid = repo
+                .refname_to_id(&tracking_ref)
+                .unwrap_or_else(|_| Oid::zero());
+            if actual_remote_oid != expected_remote_oid {
+                return Err(self.to_bgit_error(&format!(
+                    "Lease broken: remote '{remote_name}/{branch_name}' is at {actual_remote_oid}, expected {expected_remote_oid}. Aborting push."
+                )));
+            }
+
+            // 4) Lease holds — perform forced update
+            let refspec = if self.set_upstream {
+                format!("+refs/heads/{branch_name}:refs/heads/{branch_name}")
+            } else {
+                format!("+refs/heads/{branch_name}")
+            };
+
+            remote.push(&[refspec], Some(&mut push_options)).map_err(|e| {
+                let transport_hint = self.transport_hint(remote.url());
+                self.to_bgit_error(&format!(
+                    "Failed to push to remote {transport_hint} (force-with-lease): {e}. If authentication is required, ensure your credentials are set up."
+                ))
+            })?;
         } else {
+            // Pre-flight safety check for regular push
             self.validate_push_safety(&repo, &head, &branch_name)?;
-        }
 
-        let refspec = if self.set_upstream {
-            format!("refs/heads/{branch_name}:refs/heads/{branch_name}")
-        } else {
-            format!("refs/heads/{branch_name}")
-        };
+            let refspec = if self.set_upstream {
+                format!("refs/heads/{branch_name}:refs/heads/{branch_name}")
+            } else {
+                format!("refs/heads/{branch_name}")
+            };
 
-        if self.force_with_lease {
-            // Perform an atomic force-with-lease using the Git CLI, which supports passing the
-            // expected old OID to the server, avoiding TOCTOU between check and push.
-            let expected_remote_oid =
-                self.expected_remote_oid(&repo, &remote_name, &branch_name)?;
-            self.push_with_lease_cli(
-                &remote_name,
-                &branch_name,
-                expected_remote_oid,
-                self.set_upstream,
-            )?;
-        } else {
-            // Normal push via libgit2
-            let refspecs = vec![refspec];
-            remote.push(&refspecs, Some(&mut push_options)).map_err(|e| {
+            remote.push(&[refspec], Some(&mut push_options)).map_err(|e| {
                 let transport_hint = self.transport_hint(remote.url());
                 self.to_bgit_error(&format!(
                     "Failed to push to remote {transport_hint}: {e}. If authentication is required, ensure your credentials are set up."
@@ -129,86 +153,6 @@ impl GitPush {
     pub fn with_upstream_flag(&mut self, set_upstream: bool) -> &mut Self {
         self.set_upstream = set_upstream;
         self
-    }
-
-    /// Validate force-with-lease conditions
-    fn validate_force_with_lease(
-        &self,
-        repo: &Repository,
-        head: &git2::Reference,
-        branch_name: &str,
-    ) -> Result<(), Box<BGitError>> {
-        let local_commit = head
-            .peel_to_commit()
-            .map_err(|e| self.to_bgit_error(&format!("Failed to get local commit: {e}")))?;
-
-        // Check if remote branch exists and validate (prefer upstream if set)
-        let remote_name = self
-            .determine_remote_name(repo, branch_name)
-            .unwrap_or_else(|_| String::from("origin"));
-        if let Ok(remote_ref) =
-            repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
-        {
-            let remote_commit = remote_ref
-                .peel_to_commit()
-                .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
-
-            if local_commit.id() == remote_commit.id() {
-                debug!("Local branch is up to date with remote, no force-with-lease needed");
-                return Ok(());
-            }
-        }
-
-        Ok(())
-    }
-
-    // Compute expected remote OID from our local tracking ref (<remote>/<branch>)
-    fn expected_remote_oid(
-        &self,
-        repo: &Repository,
-        remote_name: &str,
-        branch_name: &str,
-    ) -> Result<git2::Oid, Box<BGitError>> {
-        let tracking_ref_name = format!("refs/remotes/{remote_name}/{branch_name}");
-        repo.find_reference(&tracking_ref_name)
-            .and_then(|r| r.peel_to_commit())
-            .map(|c| c.id())
-            .map_err(|_| {
-                self.to_bgit_error(
-                    "Cannot perform force-with-lease: no remote tracking branch found",
-                )
-            })
-    }
-
-    // Use Git CLI to push atomically with --force-with-lease=<branch>:<expected_oid>
-    fn push_with_lease_cli(
-        &self,
-        remote_name: &str,
-        branch_name: &str,
-        expected_remote_oid: git2::Oid,
-        set_upstream: bool,
-    ) -> Result<(), Box<BGitError>> {
-        let mut cmd = Command::new("git");
-        cmd.arg("push");
-        let lease = format!("--force-with-lease={branch_name}:{}", expected_remote_oid);
-        cmd.arg(lease);
-        if set_upstream {
-            cmd.arg("--set-upstream");
-        }
-        // Explicitly specify src:dst to avoid ambiguity
-        cmd.arg(remote_name)
-            .arg(format!("refs/heads/{branch_name}:refs/heads/{branch_name}"));
-
-        let out = cmd
-            .output()
-            .map_err(|e| self.to_bgit_error(&format!("Failed to execute git push: {e}")))?;
-        if !out.status.success() {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            return Err(
-                self.to_bgit_error(&format!("git push --force-with-lease failed: {stderr}"))
-            );
-        }
-        Ok(())
     }
 
     fn validate_push_safety(
@@ -434,8 +378,8 @@ mod tests {
         repo.reference(&format!("refs/remotes/foo/{branch}"), head_id, true, "test")
             .unwrap();
 
-        let gp = GitPush::new();
-        let oid = gp.expected_remote_oid(&repo, "foo", &branch).unwrap();
+        let tracking = format!("refs/remotes/foo/{branch}");
+        let oid = repo.refname_to_id(&tracking).unwrap();
         assert_eq!(oid, head_id);
     }
 
