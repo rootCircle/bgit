@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::Path,
     process::{Command, Stdio},
 };
@@ -7,23 +6,6 @@ use std::{
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use git2::{Error, ErrorClass, ErrorCode};
 use log::debug;
-
-pub fn parse_ssh_agent_output(output: &str) -> HashMap<String, String> {
-    let mut env_vars = HashMap::new();
-
-    for line in output.lines() {
-        if line.contains('=') && (line.contains("SSH_AUTH_SOCK") || line.contains("SSH_AGENT_PID"))
-        {
-            if let Some(var_part) = line.split(';').next() {
-                if let Some((key, value)) = var_part.split_once('=') {
-                    env_vars.insert(key.to_string(), value.to_string());
-                }
-            }
-        }
-    }
-
-    env_vars
-}
 
 pub fn add_key_interactive(key_path: &Path, key_name: &str) -> Result<bool, Error> {
     debug!("Trying interactive ssh-add for key: {key_name}");

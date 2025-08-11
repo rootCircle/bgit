@@ -3,7 +3,8 @@ use log::debug;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use crate::auth::ssh_utils::{add_key_interactive, parse_ssh_agent_output};
+use crate::auth::ssh_utils::add_key_interactive;
+use crate::constants::{MAX_AUTH_ATTEMPTS, SSH_AGENT_SOCKET_BASENAME};
 
 pub fn ssh_authenticate_git(
     url: &str,
@@ -16,7 +17,7 @@ pub fn ssh_authenticate_git(
     debug!("Allowed credential types: {allowed_types:?}");
 
     // Prevent infinite loops
-    if attempt_count > 3 {
+    if attempt_count > MAX_AUTH_ATTEMPTS {
         debug!(
             "Too many authentication attempts ({attempt_count}), failing to prevent infinite loop"
         );
@@ -31,16 +32,13 @@ pub fn ssh_authenticate_git(
         if let Some(username) = username_from_url {
             debug!("SSH key authentication is allowed, trying SSH agent");
 
-            // handling the case where ssh-agent is running but empty
-            if attempt_count == 2 {
-                debug!("Second attempt: trying to add SSH keys to agent before authentication");
-                if std::env::var("SSH_AUTH_SOCK").is_ok() {
-                    if let Err(e) = add_all_ssh_keys() {
-                        debug!("Failed to add keys to ssh-agent on second attempt: {e}");
-                    } else {
-                        debug!("Keys added to ssh-agent, proceeding with authentication");
-                    }
-                }
+            // Before auth attempt 1, ensure an agent is available and has at least 1 identity.
+            ensure_agent_ready()?;
+
+            // If the agent is up but has no identities, try to add keys once.
+            if agent_identities_count().unwrap_or(0) == 0 && attempt_count <= MAX_AUTH_ATTEMPTS {
+                debug!("ssh-agent has no identities, attempting to add keys from ~/.ssh");
+                let _ = add_all_ssh_keys();
             }
 
             if let Ok(cred) = try_ssh_agent_auth(username) {
@@ -61,11 +59,7 @@ pub fn ssh_authenticate_git(
 
 fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
     debug!("Attempting SSH agent authentication for user: {username}");
-
-    if std::env::var("SSH_AUTH_SOCK").is_err() {
-        debug!("SSH_AUTH_SOCK not set, attempting to spawn ssh-agent and add keys");
-        spawn_ssh_agent_and_add_keys()?;
-    }
+    ensure_agent_ready()?;
 
     match Cred::ssh_key_from_agent(username) {
         Ok(cred) => {
@@ -83,48 +77,150 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
     }
 }
 
-fn spawn_ssh_agent_and_add_keys() -> Result<(), Error> {
-    debug!("SSH_AUTH_SOCK not set, spawning ssh-agent");
+// Ensure an ssh-agent is available and exported in the environment.
+// On Unix (Linux/macOS), prefer a persistent socket at $HOME/.ssh/ssh-agent.sock to avoid duplicates.
+fn ensure_agent_ready() -> Result<(), Error> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileTypeExt;
 
-    let output = Command::new("ssh-agent").arg("-s").output().map_err(|e| {
-        Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            format!("Failed to spawn ssh-agent: {e}"),
-        )
-    })?;
+        let home = std::env::var("HOME").unwrap_or_else(|_| String::from("."));
+        let socket_path = Path::new(&home)
+            .join(".ssh")
+            .join(SSH_AGENT_SOCKET_BASENAME);
 
-    if !output.status.success() {
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            format!("ssh-agent failed with status: {}", output.status),
-        ));
-    }
-
-    let agent_output = String::from_utf8_lossy(&output.stdout);
-    debug!("ssh-agent output: {agent_output}");
-
-    let env_vars = parse_ssh_agent_output(&agent_output);
-
-    for (key, value) in &env_vars {
-        unsafe {
-            std::env::set_var(key, value);
+        // Create ~/.ssh if needed
+        if let Err(e) = std::fs::create_dir_all(Path::new(&home).join(".ssh")) {
+            debug!("Failed to ensure ~/.ssh dir exists: {e}");
         }
-        debug!("Set environment variable: {key}={value}");
+
+        // If SSH_AUTH_SOCK already points to a working agent, keep it.
+        if std::env::var("SSH_AUTH_SOCK")
+            .ok()
+            .and_then(|_| agent_identities_count().ok())
+            .is_some()
+        {
+            return Ok(());
+        }
+
+        // Otherwise, use our fixed socket path
+        unsafe {
+            std::env::set_var("SSH_AUTH_SOCK", &socket_path);
+        }
+
+        let alive = || -> bool {
+            if let Ok(md) = std::fs::metadata(&socket_path) {
+                if md.file_type().is_socket() {
+                    // Probe agent via ssh-add -l
+                    return agent_identities_count().is_ok();
+                }
+            }
+            false
+        }();
+
+        // Remove stale non-socket file
+        if let Ok(md) = std::fs::metadata(&socket_path) {
+            if !md.file_type().is_socket() {
+                let _ = std::fs::remove_file(&socket_path);
+            }
+        }
+
+        if !alive {
+            start_agent_detached(Some(&socket_path))?;
+            // Small wait loop for socket readiness
+            for _ in 0..20 {
+                if std::fs::metadata(&socket_path)
+                    .map(|m| m.file_type().is_socket())
+                    .unwrap_or(false)
+                {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+
+        Ok(())
     }
 
-    if !env_vars.contains_key("SSH_AUTH_SOCK") {
-        return Err(Error::new(
-            ErrorCode::Auth,
-            ErrorClass::Net,
-            "Failed to parse SSH_AUTH_SOCK from ssh-agent output",
-        ));
+    #[cfg(not(unix))]
+    {
+        // On Windows, rely on existing agent (Pageant or OpenSSH agent). If SSH_AUTH_SOCK is missing, try to start one.
+        if std::env::var("SSH_AUTH_SOCK").is_err() {
+            start_agent_detached(None)?;
+        }
+        Ok(())
+    }
+}
+
+fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
+    // Try to start ssh-agent in background without making bgit its parent.
+    // Prefer setsid/nohup if available (Unix). On Windows, best effort spawn.
+    #[cfg(unix)]
+    {
+        let mut cmd = if which::which("setsid").is_ok() {
+            let mut c = Command::new("setsid");
+            c.arg("ssh-agent");
+            c
+        } else if which::which("nohup").is_ok() {
+            let mut c = Command::new("nohup");
+            c.arg("ssh-agent");
+            c
+        } else {
+            Command::new("ssh-agent")
+        };
+
+        if let Some(sock) = socket {
+            // Use -a to bind to our fixed socket when supported
+            let supports_a = Command::new("ssh-agent")
+                .arg("-h")
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+
+            if supports_a {
+                cmd.arg("-a").arg(sock);
+            }
+            // Keep in foreground and let setsid/nohup detach it; discard stdio
+            cmd.arg("-D");
+        } else {
+            cmd.arg("-D");
+        }
+
+        let _child = cmd
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                Error::new(
+                    ErrorCode::Auth,
+                    ErrorClass::Net,
+                    format!("Failed to spawn ssh-agent: {e}"),
+                )
+            })?;
+
+        Ok(())
     }
 
-    add_all_ssh_keys()?;
-
-    Ok(())
+    #[cfg(not(unix))]
+    {
+        let mut cmd = Command::new("ssh-agent");
+        let _child = cmd
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                Error::new(
+                    ErrorCode::Auth,
+                    ErrorClass::Net,
+                    format!("Failed to spawn ssh-agent: {e}"),
+                )
+            })?;
+        Ok(())
+    }
 }
 
 fn add_all_ssh_keys() -> Result<(), Error> {
@@ -247,4 +343,37 @@ fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
         ErrorClass::Net,
         "No valid SSH key pairs found or all failed authentication",
     ))
+}
+
+// Returns Ok(count) of identities if agent is reachable, else Err.
+fn agent_identities_count() -> Result<usize, Error> {
+    let output = Command::new("ssh-add")
+        .arg("-l")
+        .env(
+            "SSH_AUTH_SOCK",
+            std::env::var("SSH_AUTH_SOCK").unwrap_or_default(),
+        )
+        .output()
+        .map_err(|e| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                format!("Failed to run ssh-add -l: {e}"),
+            )
+        })?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let count = stdout.lines().count();
+        Ok(count)
+    } else {
+        Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            format!(
+                "ssh-add -l failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ))
+    }
 }

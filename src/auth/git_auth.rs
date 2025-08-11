@@ -25,6 +25,7 @@ pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
 
     // Set up certificate check callback for HTTPS
     callbacks.certificate_check(|_cert, _host| {
+        // TODO(rootCircle): make this configurable and secure. For now we accept all certs.
         debug!("Skipping certificate verification (INSECURE)");
         Ok(CertificateCheckStatus::CertificateOk)
     });
