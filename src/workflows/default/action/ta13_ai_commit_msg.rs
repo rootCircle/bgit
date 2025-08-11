@@ -1,5 +1,6 @@
 use crate::config::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
+use crate::llm_tools::conventional_commit_tool::ValidateConventionalCommit;
 use crate::rules::Rule;
 use crate::rules::a02_git_name_email_setup::GitNameEmailSetup;
 use crate::rules::a12_no_secrets_staged::NoSecretsStaged;
@@ -13,14 +14,8 @@ use crate::{
     step::{ActionStep, Step},
 };
 use git2::{DiffOptions, Repository};
-use google_generative_ai_rs::v1::{
-    api::{Client, PostResult},
-    gemini::{
-        Content, Model, Part, Role,
-        request::{Request, SystemInstructionContent, SystemInstructionPart},
-    },
-};
 use log::debug;
+use rig::{completion::Prompt, providers::gemini};
 use std::path::Path;
 
 use crate::events::AtomicEvent;
@@ -53,10 +48,10 @@ impl ActionStep for AICommit {
         // Get API key from environment or provided value
         let api_key = match &self.api_key {
             Some(key) => key.clone(),
-            None => std::env::var("GEMINI_API_KEY").map_err(|_| {
+            None => std::env::var("GOOGLE_API_KEY").map_err(|_| {
                 Box::new(BGitError::new(
                     "BGitError",
-                    "GEMINI_API_KEY environment variable not set and no API key provided",
+                    "GOOGLE_API_KEY environment variable not set and no API key provided",
                     crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                     crate::bgit_error::NO_EVENT,
                     &self.name,
@@ -228,41 +223,65 @@ impl AICommit {
         api_key: &str,
         diff_content: &str,
     ) -> Result<String, Box<BGitError>> {
-        // Use the same approach as CodeSolutionGenerator - specify the model explicitly
-        let client = Client::new_from_model(Model::Gemini2_0Flash, api_key.to_string());
+        let client = gemini::Client::new(api_key);
 
-        let system_prompt = "You are a git commit message generator. Generate concise, conventional commit messages based on git diffs. Follow conventional commit format (type: description). Keep the summary line under 50 characters. Focus on what changed and why.";
+        let system_prompt = r#"You are an expert Git commit assistant.
+Generate Conventional Commit messages strictly following these rules:
+
+Constraints:
+1) First line MUST be a Conventional Commit header:
+    <type>[optional scope]: <short imperative summary>
+    - Allowed types: feat, fix, docs, style, refactor, test, chore, build, ci, perf, revert
+    - Summary ≤ 50 characters, no trailing period
+2) If needed, include a body after a blank line:
+    - Wrap lines at ~72 characters
+    - Bullet key changes with concise points
+    - Optionally add: BREAKING CHANGE: <details>
+
+Type selection guidance:
+- feat: new capability visible to users or API
+- fix: bug fix or correct behavior
+- docs: documentation-only changes
+- style: formatting, linting, no logic change
+- refactor: code restructure without behavior change
+- test: add/modify tests only
+- chore: maintenance tasks (deps, config, housekeeping)
+- build: build system, dependencies, packaging
+- ci: continuous integration/configuration
+- perf: performance improvements
+- revert: reverts a previous commit
+
+Style:
+- Use present tense, active voice, and concise language
+- Avoid file paths unless essential to clarity
+- No code blocks, quotes, backticks, or markdown decorations
+- Output ONLY the commit message content (header and optional body)"#;
+
+        let agent = client
+            .agent("gemini-2.5-flash-lite")
+            .preamble(system_prompt)
+            .temperature(0.2)
+            .tool(ValidateConventionalCommit)
+            .build();
 
         let user_prompt = format!(
-            "Generate a conventional commit message for the following git diff:\n\n{diff_content}"
+            r#"Generate a Conventional Commit message that meets the constraints above for the following staged git diff.
+
+Diff:
+```diff
+{diff_content}
+```
+
+Remember:
+- The first line must be the Conventional Commit header ONLY.
+- If you include a body, put a blank line before it and wrap lines to ~72 chars.
+- Do not include any extra commentary, explanations, or markdown—only the commit message."#
         );
 
-        // Create request similar to CodeSolutionGenerator
-        let request = Request {
-            contents: vec![Content {
-                role: Role::User,
-                parts: vec![Part {
-                    text: Some(user_prompt),
-                    inline_data: None,
-                    file_data: None,
-                    video_metadata: None,
-                }],
-            }],
-            tools: vec![],
-            safety_settings: vec![],
-            generation_config: None,
-            system_instruction: Some(SystemInstructionContent {
-                parts: vec![SystemInstructionPart {
-                    text: Some(system_prompt.to_string()),
-                }],
-            }),
-        };
-
-        // Use the same pattern as CodeSolutionGenerator for handling the response
-        let result = client.post(30, &request).await.map_err(|e| {
+        let response = agent.prompt(user_prompt).multi_turn(3).await.map_err(|e| {
             Box::new(BGitError::new(
                 "BGitError",
-                &format!("Failed to generate commit message: {}", e.message),
+                &format!("Failed to generate commit message: {e}"),
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
@@ -270,37 +289,18 @@ impl AICommit {
             ))
         })?;
 
-        // Handle the PostResult enum properly
-        match result {
-            PostResult::Rest(response) => {
-                let commit_message = response
-                    .candidates
-                    .first()
-                    .map(|candidate| candidate.content.clone())
-                    .and_then(|content| content.parts.first().cloned())
-                    .and_then(|part| part.text.clone())
-                    .map(|text| text.trim().to_string())
-                    .ok_or_else(|| {
-                        Box::new(BGitError::new(
-                            "BGitError",
-                            "No generated text found in response",
-                            crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                            crate::bgit_error::NO_EVENT,
-                            &self.name,
-                            crate::bgit_error::NO_RULE,
-                        ))
-                    })?;
-
-                Ok(commit_message)
-            }
-            _ => Err(Box::new(BGitError::new(
+        let commit_message = response.trim().to_string();
+        if commit_message.is_empty() {
+            return Err(Box::new(BGitError::new(
                 "BGitError",
-                "Unexpected response type",
+                "No generated text found in response",
                 crate::bgit_error::BGitErrorWorkflowType::ActionStep,
                 crate::bgit_error::NO_EVENT,
                 &self.name,
                 crate::bgit_error::NO_RULE,
-            ))),
+            )));
         }
+
+        Ok(commit_message)
     }
 }

@@ -12,6 +12,7 @@ mod constants;
 mod events;
 mod flags;
 mod hook_executor;
+mod llm_tools;
 mod rules;
 mod step;
 mod util;
