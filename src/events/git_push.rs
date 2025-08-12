@@ -1,10 +1,10 @@
-use std::path::Path;
-
 use super::AtomicEvent;
+use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
 use crate::rules::Rule;
-use git2::{Cred, CredentialType, Repository};
-use log::debug;
+use git2::{Oid, Repository};
+use log::{debug, info};
+use std::path::Path;
 
 pub struct GitPush {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -61,51 +61,83 @@ impl AtomicEvent for GitPush {
             }
         };
 
-        // Get remote - handle case where no remote is configured
-        let mut remote = match repo.find_remote("origin") {
-            Ok(remote) => remote,
-            Err(e) if e.code() == git2::ErrorCode::NotFound => {
-                return Err(self.to_bgit_error("No remote 'origin' configured. Please add a remote repository first with: git remote add origin <repository-url>"));
-            }
-            Err(e) => {
-                return Err(self.to_bgit_error(&format!("Failed to find remote 'origin': {e}")));
-            }
-        };
+        // Determine which remote to use (prefer branch upstream > single remote > 'origin')
+        let remote_name = self
+            .determine_remote_name(&repo, &branch_name)
+            .map_err(|e| self.to_bgit_error(&e.to_string()))?;
 
-        // Prepare push options with authentication
+        // Get remote - handle case where no remote is configured
+        let mut remote = repo.find_remote(&remote_name).map_err(|e| {
+            self.to_bgit_error(&format!("Failed to find remote '{remote_name}': {e}"))
+        })?;
+
+        // Prepare push options with authentication and callbacks
         let mut push_options = Self::create_push_options();
 
-        // Validation
         if self.force_with_lease {
-            self.validate_force_with_lease(&repo, &head, &branch_name)?;
+            // Best-effort native force-with-lease emulation with libgit2:
+            // 1) Capture expected remote OID from tracking ref before fetching
+            let tracking_ref = format!("refs/remotes/{remote_name}/{branch_name}");
+            let expected_remote_oid = repo
+                .refname_to_id(&tracking_ref)
+                .unwrap_or_else(|_| Oid::zero());
+
+            // 2) Fetch latest state for the branch to update tracking ref
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.remote_callbacks(setup_auth_callbacks());
+            let fetch_refspec = format!(
+                "refs/heads/{0}:refs/remotes/{1}/{0}",
+                branch_name, remote_name
+            );
+            remote
+                .fetch(&[fetch_refspec], Some(&mut fetch_opts), None)
+                .map_err(|e| self.to_bgit_error(&format!("Failed to fetch from remote: {e}")))?;
+
+            // 3) Compare actual vs expected; if diverged, abort
+            let actual_remote_oid = repo
+                .refname_to_id(&tracking_ref)
+                .unwrap_or_else(|_| Oid::zero());
+            if actual_remote_oid != expected_remote_oid {
+                return Err(self.to_bgit_error(&format!(
+                    "Lease broken: remote '{remote_name}/{branch_name}' is at {actual_remote_oid}, expected {expected_remote_oid}. Aborting push."
+                )));
+            }
+
+            // 4) Lease holds — perform forced update
+            let refspec = if self.set_upstream {
+                format!("+refs/heads/{branch_name}:refs/heads/{branch_name}")
+            } else {
+                format!("+refs/heads/{branch_name}")
+            };
+
+            remote.push(&[refspec], Some(&mut push_options)).map_err(|e| {
+                let transport_hint = self.transport_hint(remote.url());
+                self.to_bgit_error(&format!(
+                    "Failed to push to remote {transport_hint} (force-with-lease): {e}. If authentication is required, ensure your credentials are set up."
+                ))
+            })?;
         } else {
+            // Pre-flight safety check for regular push
             self.validate_push_safety(&repo, &head, &branch_name)?;
+
+            let refspec = if self.set_upstream {
+                format!("refs/heads/{branch_name}:refs/heads/{branch_name}")
+            } else {
+                format!("refs/heads/{branch_name}")
+            };
+
+            remote.push(&[refspec], Some(&mut push_options)).map_err(|e| {
+                let transport_hint = self.transport_hint(remote.url());
+                self.to_bgit_error(&format!(
+                    "Failed to push to remote {transport_hint}: {e}. If authentication is required, ensure your credentials are set up."
+                ))
+            })?;
         }
 
-        let refspec = if self.set_upstream {
-            format!("refs/heads/{branch_name}:refs/heads/{branch_name}")
-        } else {
-            format!("refs/heads/{branch_name}")
-        };
-
-        // Perform the push with force-with-lease if enabled
-        let refspecs = if self.force_with_lease {
-            let force_lease_refspec =
-                self.build_force_with_lease_refspec(&repo, &branch_name, &refspec)?;
-            vec![force_lease_refspec]
-        } else {
-            vec![refspec]
-        };
-
-        remote
-            .push(&refspecs, Some(&mut push_options))
-            .map_err(|e| {
-                self.to_bgit_error(&format!("Failed to push to remote: {e}. Please check your SSH keys or authentication setup."))
-            })?;
-
-        // Set upstream if requested and push was successful
-        if self.set_upstream {
-            self.set_upstream_branch(&repo, &branch_name)?;
+        // Set upstream if requested or if there is no upstream yet
+        if self.set_upstream || !self.has_upstream(&repo, &branch_name)? {
+            self.set_upstream_branch(&repo, &remote_name, &branch_name)?;
+            info!("Set upstream to {remote_name}/{branch_name}");
         }
 
         Ok(true)
@@ -123,58 +155,18 @@ impl GitPush {
         self
     }
 
-    /// Validate force-with-lease conditions
-    fn validate_force_with_lease(
-        &self,
-        repo: &Repository,
-        head: &git2::Reference,
-        branch_name: &str,
-    ) -> Result<(), Box<BGitError>> {
-        let local_commit = head
-            .peel_to_commit()
-            .map_err(|e| self.to_bgit_error(&format!("Failed to get local commit: {e}")))?;
-
-        // Check if remote branch exists and validate
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
-            let remote_commit = remote_ref
-                .peel_to_commit()
-                .map_err(|e| self.to_bgit_error(&format!("Failed to get remote commit: {e}")))?;
-
-            if local_commit.id() == remote_commit.id() {
-                debug!("Local branch is up to date with remote, no force-with-lease needed");
-                return Ok(());
-            }
-        }
-
-        Ok(())
-    }
-
-    fn build_force_with_lease_refspec(
-        &self,
-        repo: &Repository,
-        branch_name: &str,
-        base_refspec: &str,
-    ) -> Result<String, Box<BGitError>> {
-        // Force-with-lease using the current remote tracking branch as the expected value
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
-            let remote_oid = remote_ref.target().ok_or_else(|| {
-                self.to_bgit_error("Failed to get remote reference target for force-with-lease")
-            })?;
-
-            Ok(format!("+{base_refspec}^{{{remote_oid}}}"))
-        } else {
-            Err(self
-                .to_bgit_error("Cannot perform force-with-lease: no remote tracking branch found"))
-        }
-    }
-
     fn validate_push_safety(
         &self,
         repo: &Repository,
         head: &git2::Reference,
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
-        if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/origin/{branch_name}")) {
+        let remote_name = self
+            .determine_remote_name(repo, branch_name)
+            .unwrap_or_else(|_| String::from("origin"));
+        if let Ok(remote_ref) =
+            repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
+        {
             let local_commit = head
                 .peel_to_commit()
                 .map_err(|e| self.to_bgit_error(&format!("Failed to get local commit: {e}")))?;
@@ -194,7 +186,9 @@ impl GitPush {
                 .map_err(|e| self.to_bgit_error(&format!("Failed to find merge base: {e}")))?;
 
             if merge_base == local_commit.id() && local_commit.id() != remote_commit.id() {
-                return Err(self.to_bgit_error("Local branch is behind remote. Pull changes first"));
+                return Err(
+                    self.to_bgit_error("Local branch is behind remote. Pull changes first.")
+                );
             }
         }
 
@@ -204,6 +198,7 @@ impl GitPush {
     fn set_upstream_branch(
         &self,
         repo: &Repository,
+        remote_name: &str,
         branch_name: &str,
     ) -> Result<(), Box<BGitError>> {
         let mut branch = repo
@@ -212,7 +207,7 @@ impl GitPush {
                 self.to_bgit_error(&format!("Failed to find local branch {branch_name}: {e}"))
             })?;
 
-        let upstream_name = format!("origin/{branch_name}");
+        let upstream_name = format!("{remote_name}/{branch_name}");
         branch.set_upstream(Some(&upstream_name)).map_err(|e| {
             self.to_bgit_error(&format!("Failed to set upstream to {upstream_name}: {e}"))
         })?;
@@ -220,155 +215,190 @@ impl GitPush {
         Ok(())
     }
 
-    /// Set up authentication callbacks for git operations
-    fn setup_auth_callbacks() -> git2::RemoteCallbacks<'static> {
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+    fn has_upstream(&self, repo: &Repository, branch_name: &str) -> Result<bool, Box<BGitError>> {
+        let branch = repo
+            .find_branch(branch_name, git2::BranchType::Local)
+            .map_err(|e| {
+                self.to_bgit_error(&format!("Failed to find local branch {branch_name}: {e}"))
+            })?;
+        Ok(branch.upstream().is_ok())
+    }
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        let attempt_count = Arc::new(AtomicUsize::new(0));
-
-        callbacks.credentials(move |url, username_from_url, allowed_types| {
-            let current_attempt = attempt_count.fetch_add(1, Ordering::SeqCst);
-            // Limit authentication attempts to prevent infinite loops
-            if current_attempt > 3 {
-                return Err(git2::Error::new(
-                    git2::ErrorCode::Auth,
-                    git2::ErrorClass::Net,
-                    "Maximum authentication attempts exceeded",
-                ));
+    // Determine the remote to use for pushes: prefer branch upstream remote, else if exactly one remote exists, use it, else try 'origin', else error.
+    fn determine_remote_name(
+        &self,
+        repo: &Repository,
+        branch_name: &str,
+    ) -> Result<String, String> {
+        // Try branch upstream
+        if let Ok(branch) = repo.find_branch(branch_name, git2::BranchType::Local)
+            && let Ok(upstream) = branch.upstream()
+            && let Some(name) = upstream.get().name()
+        {
+            // name like: refs/remotes/<remote>/<branch>
+            let parts: Vec<&str> = name.split('/').collect();
+            if parts.len() >= 4 && parts[0] == "refs" && parts[1] == "remotes" {
+                return Ok(parts[2].to_string());
             }
+        }
 
-            // If SSH key authentication is allowed
-            if allowed_types.contains(CredentialType::SSH_KEY) {
-                if let Some(username) = username_from_url {
-                    // Try SSH agent first (most common and secure)
-                    match Cred::ssh_key_from_agent(username) {
-                        Ok(cred) => {
-                            return Ok(cred);
-                        }
-                        Err(e) => {
-                            println!("SSH agent failed: {e}");
-                        }
-                    }
-
-                    // Try to find SSH keys in standard locations
-                    let home_dir = std::env::var("HOME")
-                        .or_else(|_| std::env::var("USERPROFILE"))
-                        .unwrap_or_else(|_| ".".to_string());
-
-                    let ssh_dir = Path::new(&home_dir).join(".ssh");
-
-                    // Common SSH key file names in order of preference
-                    let key_files = [
-                        ("id_ed25519", "id_ed25519.pub"),
-                        ("id_rsa", "id_rsa.pub"),
-                        ("id_ecdsa", "id_ecdsa.pub"),
-                        ("id_dsa", "id_dsa.pub"),
-                    ];
-
-                    for (private_name, public_name) in &key_files {
-                        let private_key = ssh_dir.join(private_name);
-                        let public_key = ssh_dir.join(public_name);
-
-                        if private_key.exists() {
-                            // Try with public key if it exists
-                            if public_key.exists() {
-                                match Cred::ssh_key(username, Some(&public_key), &private_key, None)
-                                {
-                                    Ok(cred) => {
-                                        return Ok(cred);
-                                    }
-                                    Err(e) => {
-                                        println!("SSH key with public key failed: {e}");
-                                    }
-                                }
-                            }
-
-                            // Try without public key
-                            match Cred::ssh_key(username, None, &private_key, None) {
-                                Ok(cred) => {
-                                    return Ok(cred);
-                                }
-                                Err(e) => {
-                                    println!("SSH key without public key failed: {e}");
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    println!("No username provided for SSH authentication");
-                }
+        // If exactly one remote is configured, use it
+        if let Ok(remotes) = repo.remotes() {
+            if remotes.len() == 1
+                && let Some(r) = remotes.get(0)
+            {
+                return Ok(r.to_string());
             }
-
-            // If username/password authentication is allowed (HTTPS)
-            if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-                // Try to get credentials from git config or environment
-                if let (Ok(username), Ok(password)) =
-                    (std::env::var("GIT_USERNAME"), std::env::var("GIT_PASSWORD"))
+            // If 'origin' exists, prefer it
+            for i in 0..remotes.len() {
+                if let Some(r) = remotes.get(i)
+                    && r == "origin"
                 {
-                    return Cred::userpass_plaintext(&username, &password);
-                }
-
-                // For GitHub, you might want to use a personal access token
-                if url.contains("github.com")
-                    && let Ok(token) = std::env::var("GITHUB_TOKEN")
-                {
-                    return Cred::userpass_plaintext("git", &token);
+                    return Ok("origin".to_string());
                 }
             }
+        }
 
-            // Default authentication (tries default SSH key)
-            if allowed_types.contains(CredentialType::DEFAULT) {
-                match Cred::default() {
-                    Ok(cred) => {
-                        return Ok(cred);
-                    }
-                    Err(e) => {
-                        println!("Default authentication failed: {e}");
-                    }
-                }
-            }
-
-            Err(git2::Error::new(
-                git2::ErrorCode::Auth,
-                git2::ErrorClass::Net,
-                format!(
-                    "Authentication failed after {} attempts for {}. Available methods: {:?}",
-                    current_attempt + 1,
-                    url,
-                    allowed_types
-                ),
-            ))
-        });
-
-        // Add push update reference callback for better error reporting
-        callbacks.push_update_reference(|refname, status| match status {
-            Some(msg) => {
-                println!("Push failed for {refname}: {msg}");
-                Err(git2::Error::from_str(msg))
-            }
-            None => {
-                println!("Push successful for {refname}");
-                Ok(())
-            }
-        });
-
-        // Set up certificate check callback for HTTPS
-        callbacks.certificate_check(|_cert, _host| {
-            // In production, you should properly validate certificates
-            // For now, we'll accept all certificates (not recommended for production)
-            println!("Certificate check for host: {_host}");
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
-
-        callbacks
+        Err("No suitable remote configured. Add a remote or set an upstream (git branch --set-upstream-to <remote>/<branch>).".to_string())
     }
 
     /// Create push options with authentication
     fn create_push_options() -> git2::PushOptions<'static> {
         let mut push_options = git2::PushOptions::new();
-        push_options.remote_callbacks(Self::setup_auth_callbacks());
+        let mut callbacks = setup_auth_callbacks();
+        // Surface ref update errors clearly during push
+        callbacks.push_update_reference(|refname, status| match status {
+            Some(msg) => {
+                debug!("Push failed for {refname}: {msg}");
+                Err(git2::Error::from_str(msg))
+            }
+            None => {
+                debug!("Push successful for {refname}");
+                Ok(())
+            }
+        });
+        push_options.remote_callbacks(callbacks);
         push_options
+    }
+
+    fn transport_hint(&self, url_opt: Option<&str>) -> &'static str {
+        if let Some(u) = url_opt {
+            if u.starts_with("http://") || u.starts_with("https://") {
+                "(HTTPS) - check token/credentials"
+            } else if u.starts_with("ssh://")
+                || u.starts_with("git@")
+                || (u.contains('@') && u.contains(':'))
+            {
+                "(SSH) - check keys/agent"
+            } else {
+                ""
+            }
+        } else {
+            ""
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use git2::Signature;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn init_repo_with_commit() -> (TempDir, Repository, String) {
+        let td = TempDir::with_prefix("bgit_unit_").unwrap();
+        let repo = Repository::init(td.path()).unwrap();
+
+        // Configure user
+        repo.config().unwrap().set_str("user.name", "Test").unwrap();
+        repo.config()
+            .unwrap()
+            .set_str("user.email", "test@example.com")
+            .unwrap();
+
+        // Create initial commit on main
+        fs::write(td.path().join("README.md"), b"hello").unwrap();
+        let mut idx = repo.index().unwrap();
+        idx.add_path(Path::new("README.md")).unwrap();
+        idx.write().unwrap();
+        let tree_id = idx.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = Signature::now("Test", "test@example.com").unwrap();
+        let _ = repo
+            .commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
+            .unwrap();
+        drop(tree);
+        // Ensure branch name exists
+        let branch_name = {
+            let head_ref = repo.head().unwrap();
+            head_ref.shorthand().unwrap().to_string()
+        };
+        (td, repo, branch_name)
+    }
+
+    #[test]
+    fn determine_remote_prefers_upstream() {
+        let (_td, repo, branch) = init_repo_with_commit();
+        // add two remotes
+        repo.remote("foo", "https://example.com/foo.git").unwrap();
+        repo.remote("origin", "https://example.com/origin.git")
+            .unwrap();
+
+        // Simulate upstream to foo/<branch> by creating the tracking ref
+        let head_id = repo.head().unwrap().target().unwrap();
+        repo.reference(&format!("refs/remotes/foo/{branch}"), head_id, true, "test")
+            .unwrap();
+
+        // Also set branch upstream in config
+        repo.config()
+            .unwrap()
+            .set_str(&format!("branch.{branch}.remote"), "foo")
+            .unwrap();
+        repo.config()
+            .unwrap()
+            .set_str(
+                &format!("branch.{branch}.merge"),
+                &format!("refs/heads/{branch}"),
+            )
+            .unwrap();
+
+        let gp = GitPush::new();
+        let chosen = gp.determine_remote_name(&repo, &branch).unwrap();
+        assert_eq!(chosen, "foo");
+    }
+
+    #[test]
+    fn expected_remote_oid_uses_remote_name() {
+        let (_td, repo, branch) = init_repo_with_commit();
+        repo.remote("foo", "https://example.com/foo.git").unwrap();
+
+        // Create tracking ref for foo/<branch> pointing to HEAD
+        let head_id = repo.head().unwrap().target().unwrap();
+        repo.reference(&format!("refs/remotes/foo/{branch}"), head_id, true, "test")
+            .unwrap();
+
+        let tracking = format!("refs/remotes/foo/{branch}");
+        let oid = repo.refname_to_id(&tracking).unwrap();
+        assert_eq!(oid, head_id);
+    }
+
+    #[test]
+    fn has_upstream_checks_presence() {
+        let (_td, repo, branch) = init_repo_with_commit();
+        repo.remote("foo", "https://example.com/foo.git").unwrap();
+
+        let gp = GitPush::new();
+        // Initially no upstream
+        assert!(!gp.has_upstream(&repo, &branch).unwrap());
+
+        // Set upstream to foo/branch
+        // Ensure the tracking reference exists for the remote branch
+        let head_id = repo.head().unwrap().target().unwrap();
+        repo.reference(&format!("refs/remotes/foo/{branch}"), head_id, true, "test")
+            .unwrap();
+        let mut br = repo.find_branch(&branch, git2::BranchType::Local).unwrap();
+        br.set_upstream(Some(&format!("foo/{branch}"))).unwrap();
+        assert!(gp.has_upstream(&repo, &branch).unwrap());
     }
 }

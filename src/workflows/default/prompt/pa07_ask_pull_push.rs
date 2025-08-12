@@ -5,7 +5,6 @@ use crate::{
     step::{PromptStep, Step, Task::PromptStepTask},
 };
 use dialoguer::{Select, theme::ColorfulTheme};
-
 pub(crate) struct AskPushPull {
     name: String,
 }
