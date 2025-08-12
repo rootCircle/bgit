@@ -28,6 +28,12 @@ jobs:
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Install cross (Linux-only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
       - name: Verify tag matches Cargo.toml version (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -60,6 +66,31 @@ jobs:
       - name: Build (release)
         run: cargo build --locked --release
 
+      - name: Build extra targets (Linux musl via cross)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          cross build --locked --release --target x86_64-unknown-linux-musl
+
+      - name: Build extra targets (Linux aarch64 gnu via cross)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          cross build --locked --release --target aarch64-unknown-linux-gnu
+
+      - name: Build extra targets (Linux aarch64 musl via cross)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          cross build --locked --release --target aarch64-unknown-linux-musl
+
+      - name: Build extra targets (macOS aarch64)
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -eux
+          rustup target add aarch64-apple-darwin
+          cargo build --locked --release --target aarch64-apple-darwin
+
       - name: Package artifact (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -76,6 +107,62 @@ jobs:
           tar -C target/release -czf "$ART_DIR/$ARCHIVE_NAME" "$BIN_NAME"
           # Checksums
           (cd "$ART_DIR"; if command -v sha256sum >/dev/null 2>&1; then sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256"; else shasum -a 256 "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256"; fi)
+
+      - name: Package artifact (Linux musl)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          TAG_NAME="${{ github.ref_name }}" # e.g., v0.3.1
+          BIN_NAME="bgit"
+          ART_DIR="dist"
+          mkdir -p "$ART_DIR"
+          BIN_PATH="target/x86_64-unknown-linux-musl/release/${BIN_NAME}"
+          test -x "$BIN_PATH"
+          ARCHIVE_NAME="${BIN_NAME}-${TAG_NAME}-${{ matrix.os }}-x86_64-musl.tar.gz"
+          tar -C target/x86_64-unknown-linux-musl/release -czf "$ART_DIR/$ARCHIVE_NAME" "$BIN_NAME"
+          (cd "$ART_DIR"; sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
+
+      - name: Package artifact (Linux aarch64 gnu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          TAG_NAME="${{ github.ref_name }}" # e.g., v0.3.1
+          BIN_NAME="bgit"
+          ART_DIR="dist"
+          mkdir -p "$ART_DIR"
+          BIN_PATH="target/aarch64-unknown-linux-gnu/release/${BIN_NAME}"
+          test -x "$BIN_PATH"
+          ARCHIVE_NAME="${BIN_NAME}-${TAG_NAME}-${{ matrix.os }}-aarch64.tar.gz"
+          tar -C target/aarch64-unknown-linux-gnu/release -czf "$ART_DIR/$ARCHIVE_NAME" "$BIN_NAME"
+          (cd "$ART_DIR"; sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
+
+      - name: Package artifact (Linux aarch64 musl)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -eux
+          TAG_NAME="${{ github.ref_name }}" # e.g., v0.3.1
+          BIN_NAME="bgit"
+          ART_DIR="dist"
+          mkdir -p "$ART_DIR"
+          BIN_PATH="target/aarch64-unknown-linux-musl/release/${BIN_NAME}"
+          test -x "$BIN_PATH"
+          ARCHIVE_NAME="${BIN_NAME}-${TAG_NAME}-${{ matrix.os }}-aarch64-musl.tar.gz"
+          tar -C target/aarch64-unknown-linux-musl/release -czf "$ART_DIR/$ARCHIVE_NAME" "$BIN_NAME"
+          (cd "$ART_DIR"; sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
+
+      - name: Package artifact (macOS aarch64)
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -eux
+          TAG_NAME="${{ github.ref_name }}" # e.g., v0.3.1
+          BIN_NAME="bgit"
+          ART_DIR="dist"
+          mkdir -p "$ART_DIR"
+          BIN_PATH="target/aarch64-apple-darwin/release/${BIN_NAME}"
+          test -x "$BIN_PATH"
+          ARCHIVE_NAME="${BIN_NAME}-${TAG_NAME}-${{ matrix.os }}-aarch64.tar.gz"
+          tar -C target/aarch64-apple-darwin/release -czf "$ART_DIR/$ARCHIVE_NAME" "$BIN_NAME"
+          (cd "$ART_DIR"; shasum -a 256 "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
 
       - name: Package artifact (Windows)
         if: runner.os == 'Windows'
@@ -150,13 +237,39 @@ jobs:
           mkdir -p release
           cp -v artifacts/* release/
 
+      - name: Generate aggregate checksums (RELEASES.txt)
+        run: |
+          set -eux
+          cd release
+          rm -f RELEASES.txt
+          if command -v sha256sum >/dev/null 2>&1; then
+            for f in *.{tar.gz,zip}; do [ -f "$f" ] && sha256sum "$f" >> RELEASES.txt; done
+          else
+            for f in *.{tar.gz,zip}; do [ -f "$f" ] && shasum -a 256 "$f" >> RELEASES.txt; done
+          fi
+
+      - name: Sign RELEASES.txt (optional)
+        if: ${{ secrets.GPG_PRIVATE_KEY }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+          cd release
+          if [ -n "${GPG_PASSPHRASE:-}" ]; then
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" -a -b -o RELEASES.txt.asc RELEASES.txt
+          else
+            gpg --batch --yes -a -b -o RELEASES.txt.asc RELEASES.txt
+          fi
+
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body_path: ${{ steps.changelog.outputs.notes_path }}
           files: |
             release/*
