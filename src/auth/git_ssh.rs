@@ -1,10 +1,15 @@
 use git2::{Cred, CredentialType, Error, ErrorClass, ErrorCode};
 use log::debug;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use crate::auth::ssh_utils::add_key_interactive;
-use crate::constants::{MAX_AUTH_ATTEMPTS, SSH_AGENT_SOCKET_BASENAME};
+use crate::constants::MAX_AUTH_ATTEMPTS;
+
+#[cfg(unix)]
+use crate::constants::SSH_AGENT_SOCKET_BASENAME;
+#[cfg(unix)]
+use std::path::Path;
 
 pub fn ssh_authenticate_git(
     url: &str,
@@ -157,18 +162,53 @@ fn ensure_agent_ready() -> Result<(), Error> {
     {
         // On Windows, rely on existing agent (Pageant or OpenSSH agent). If SSH_AUTH_SOCK is missing, try to start one.
         if std::env::var("SSH_AUTH_SOCK").is_err() {
-            start_agent_detached(None)?;
+            start_agent_detached()?;
         }
         Ok(())
     }
 }
 
+#[cfg(unix)]
 fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
     // Try to start ssh-agent in background without making bgit its parent.
-    // Prefer setsid/nohup if available (Unix). On Windows, best effort spawn.
-    #[cfg(unix)]
-    {
-        let mut cmd = if which::which("setsid").is_ok() {
+    // Prefer setsid/nohup if available (Unix).
+    let mut cmd = if which::which("setsid").is_ok() {
+        let mut c = Command::new("setsid");
+        c.arg("ssh-agent");
+        c
+    } else if which::which("nohup").is_ok() {
+        let mut c = Command::new("nohup");
+        c.arg("ssh-agent");
+        c
+    } else {
+        Command::new("ssh-agent")
+    };
+
+    if let Some(sock) = socket {
+        // First try -a to bind to our fixed socket; if it fails, we'll fallback below
+        cmd.arg("-a").arg(sock);
+        // Keep in foreground and let setsid/nohup detach it; discard stdio
+        cmd.arg("-D");
+    } else {
+        cmd.arg("-D");
+    }
+
+    let spawn_res = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                format!("Failed to spawn ssh-agent: {e}"),
+            )
+        });
+
+    if spawn_res.is_err() && socket.is_some() {
+        // Fallback: try without -a (older agents)
+        let mut fallback = if which::which("setsid").is_ok() {
             let mut c = Command::new("setsid");
             c.arg("ssh-agent");
             c
@@ -179,70 +219,33 @@ fn start_agent_detached(socket: Option<&Path>) -> Result<(), Error> {
         } else {
             Command::new("ssh-agent")
         };
-
-        if let Some(sock) = socket {
-            // First try -a to bind to our fixed socket; if it fails, we'll fallback below
-            cmd.arg("-a").arg(sock);
-            // Keep in foreground and let setsid/nohup detach it; discard stdio
-            cmd.arg("-D");
-        } else {
-            cmd.arg("-D");
-        }
-
-        let spawn_res = cmd
+        fallback.arg("-D");
+        let _ = fallback
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| {
-                Error::new(
-                    ErrorCode::Auth,
-                    ErrorClass::Net,
-                    format!("Failed to spawn ssh-agent: {e}"),
-                )
-            });
-
-        if spawn_res.is_err() && socket.is_some() {
-            // Fallback: try without -a (older agents)
-            let mut fallback = if which::which("setsid").is_ok() {
-                let mut c = Command::new("setsid");
-                c.arg("ssh-agent");
-                c
-            } else if which::which("nohup").is_ok() {
-                let mut c = Command::new("nohup");
-                c.arg("ssh-agent");
-                c
-            } else {
-                Command::new("ssh-agent")
-            };
-            fallback.arg("-D");
-            let _ = fallback
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn();
-        }
-
-        Ok(())
+            .spawn();
     }
 
-    #[cfg(not(unix))]
-    {
-        let mut cmd = Command::new("ssh-agent");
-        let _child = cmd
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| {
-                Error::new(
-                    ErrorCode::Auth,
-                    ErrorClass::Net,
-                    format!("Failed to spawn ssh-agent: {e}"),
-                )
-            })?;
-        Ok(())
-    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn start_agent_detached() -> Result<(), Error> {
+    // On Windows, best-effort spawn
+    let _child = Command::new("ssh-agent")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| {
+            Error::new(
+                ErrorCode::Auth,
+                ErrorClass::Net,
+                format!("Failed to spawn ssh-agent: {e}"),
+            )
+        })?;
+    Ok(())
 }
 
 fn add_all_ssh_keys() -> Result<(), Error> {

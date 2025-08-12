@@ -6,4 +6,5 @@ pub(crate) const DEFAULT_MAX_CUMMULATIVE_STAGED_FILE_SIZE_IN_BYTES: u64 = 32 * 1
 pub(crate) const MAX_AUTH_ATTEMPTS: usize = 3;
 
 // SSH agent socket basename. On Unix we bind ssh-agent to $HOME/.ssh/ssh-agent.sock
+#[cfg(unix)]
 pub(crate) const SSH_AGENT_SOCKET_BASENAME: &str = "bgit_ssh_agent.sock";
