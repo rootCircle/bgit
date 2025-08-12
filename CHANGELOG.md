@@ -5,7 +5,156 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.1 (2025-08-13)
+
+### Chore
+
+ - <csr-id-e0cd3717282b40f02d92fee7b594b62be739bc3e/> git pull fix
+ - <csr-id-8eae1be826e4fa704bdfdd4a054a15ef208e9c98/> move few helper method to impl
+ - <csr-id-4435aba169a68cd271b6e59af7007d8cc9733526/> unimplemented error on other subcommands
+ - <csr-id-261ccfe5b29066a98e804b9f4f189e5bba603a82/> update LICENSE owners & lint
+
+### Documentation
+
+ - <csr-id-c4ce388fb4278ede5d8720f75540f0a7b6a82132/> add library links
+ - <csr-id-3dbf649e29f1457d2c0ee50394b07fc390d5eb02/> fix overide sole contributor values
+
+### New Features
+
+ - <csr-id-71760ebb6c8e6903f0c353938f0cef04ba590c33/> Enhance SSH Key Handling and Git Push Functionality
+   - Improved SSH key handling by adding the `home` crate to determine the user's home directory and fixing ssh-agent lifecycle issues.
+   - Added support for force-with-lease via git CLI, enhancing the push functionality.
+   - Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.
+   - SSH passphrase support
+   - Improve force-with-lease logic
+   - Enhanced error messages and remote determination for better user experience.
+   - Updated authentication workflow to support passphrase and personal access tokens (PAT).
+   - Extracted authentication logic from git_clone, git_pull and git_push
+     and refactored it to a auth module.
+ - <csr-id-18ab7a43e51164a4b481260b570e040af5f32d76/> Improve rule efficiency and add Rust 1.88 support
+   This commit introduces several changes to improve the efficiency of rules and updates the Rust version to 1.88.
+   
+   - Updated Rust version to 1.88 in Cargo.toml.
+   - Added combined boolean expressions across multiple files.
+ - <csr-id-886e05e1fb9ce299d9ee259696dce24ced9d5ac0/> Refactor to rig-core and validate commit message
+   Switches from google-generative-ai-rs to rig-core for commit
+   message generation.  Adds ValidateConventionalCommit tool for
+   prompting an LLM to generate commit messages, and removes
+   google-generative-ai-rs and related dependencies.
+   
+   This resolves issues with response handling.
+ - <csr-id-562f83824897e4dc5d768b74e215172ef83545bc/> IT setup
+ - <csr-id-dcd50c9b763dd66a80393f2c81d8951a108977c5/> Refactor file size checks, add install target
+   This commit refactors the way file sizes are checked and
+   introduces an install target in the Makefile.
+   
+   - Reduced default max large file size to 2MiB
+   - Increased default max repo size to 128MiB
+   - Increased default cumulative staged file size to 32MiB
+   - Added directory size calculation to `get_path_size`
+   - Added an install target to Makefile
+ - <csr-id-ecbf6af27a7eb763437b161c4041db44f8bfd0c8/> Add pre-commit hook and file size checks
+   This commit introduces a pre-commit hook to run formatting and
+   linting, and implements a check to ensure that files staged are not too large to
+   prevent performance issues with Git.
+   
+   - Added a `precommit-fix` target to the Makefile to run cargo fmt and clippy.
+   - Implemented a rule to check staged file sizes.
+   - Added file size rule to push action to prevent pushing large files.
+ - <csr-id-c74a22ca4c41c62a3d573084494201d597905b14/> Use constants for default file size limits
+   This commit introduces constants for default maximum file and repository sizes, and uses these constants in the relevant rules, improving maintainability and configurability.
+
+### Bug Fixes
+
+ - <csr-id-af08bbbed1f079c6ea2d9f7556dc5f0dbc2bc601/> fix class of bugs which occurs on empty repo with no commit (repo.head())
+   added rule of remotes exists
+ - <csr-id-1fc4d3cead93733251952edaa09a0cc56004f3e4/> fix clippy issue
+ - <csr-id-1684ada0186c5d237fe7d0b41dc4904c8624de53/> remove unnecessary check of unstaged files
+ - <csr-id-e543f195bdf7d745def11fe52094281ee1b1756b/> resolve nitpicks
+ - <csr-id-2dea085e9d52ab736b1739f6a41ee26fd570d3fa/> replace force with force_with_lease
+ - <csr-id-3670d97992f8237be5744d89251a0ad66a1351a7/> strip .git suffix from cloned repository folder names
+
+### Other
+
+ - <csr-id-7fa30f5df8cef0f28fca0d664d23aee9cc93b3e6/> cargo sort
+ - <csr-id-a8b37f7fd09dc39ef45c926dcca23ac6e716d64c/> upgrade package
+ - <csr-id-2d435c16783331a1780048df8a23ec5e2793143f/> remove codecov integration
+ - <csr-id-66531db9854a3d28d694177230e24d4943022c42/> Improve large file detection and LFS suggestion
+   This commit fixes the following issues:
+   
+   - Fixes a bug where capture group 2 would error if it didn't exist.
+   - Changes the NoLargeFile rule level to "error" to ensure that large files are not committed.
+   - Enhances large file detection to consider both individual file size and total size of staged/modified files.
+   - Improves the suggestion messages for using Git LFS, including instructions for tracking files by extension or specific files.
+   - Adds automatic LFS tracking by extension to .gitattributes.
+
+### Refactor
+
+ - <csr-id-02492a4adcef732063d5174d7ba53e0b8ad6a4bc/> simplify error handling in GitStatus methods
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 26 commits contributed to the release over the course of 63 calendar days.
+ - 64 days passed between releases.
+ - 24 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#7](https://github.com/rootCircle/bgit/issues/7)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#7](https://github.com/rootCircle/bgit/issues/7)**
+    - Enhance SSH Key Handling and Git Push Functionality ([`71760eb`](https://github.com/rootCircle/bgit/commit/71760ebb6c8e6903f0c353938f0cef04ba590c33))
+ * **Uncategorized**
+    - Git pull fix ([`e0cd371`](https://github.com/rootCircle/bgit/commit/e0cd3717282b40f02d92fee7b594b62be739bc3e))
+    - Improve rule efficiency and add Rust 1.88 support ([`18ab7a4`](https://github.com/rootCircle/bgit/commit/18ab7a43e51164a4b481260b570e040af5f32d76))
+    - Refactor to rig-core and validate commit message ([`886e05e`](https://github.com/rootCircle/bgit/commit/886e05e1fb9ce299d9ee259696dce24ced9d5ac0))
+    - Cargo sort ([`7fa30f5`](https://github.com/rootCircle/bgit/commit/7fa30f5df8cef0f28fca0d664d23aee9cc93b3e6))
+    - Simplify error handling in GitStatus methods ([`02492a4`](https://github.com/rootCircle/bgit/commit/02492a4adcef732063d5174d7ba53e0b8ad6a4bc))
+    - Move few helper method to impl ([`8eae1be`](https://github.com/rootCircle/bgit/commit/8eae1be826e4fa704bdfdd4a054a15ef208e9c98))
+    - Refactor error handling in Git event modules ([`9b9786e`](https://github.com/rootCircle/bgit/commit/9b9786e4c8f29c59af10c7658feec682c53d54f7))
+    - IT setup ([`562f838`](https://github.com/rootCircle/bgit/commit/562f83824897e4dc5d768b74e215172ef83545bc))
+    - Fix class of bugs which occurs on empty repo with no commit (repo.head()) ([`af08bbb`](https://github.com/rootCircle/bgit/commit/af08bbbed1f079c6ea2d9f7556dc5f0dbc2bc601))
+    - Fix clippy issue ([`1fc4d3c`](https://github.com/rootCircle/bgit/commit/1fc4d3cead93733251952edaa09a0cc56004f3e4))
+    - Upgrade package ([`a8b37f7`](https://github.com/rootCircle/bgit/commit/a8b37f7fd09dc39ef45c926dcca23ac6e716d64c))
+    - Unimplemented error on other subcommands ([`4435aba`](https://github.com/rootCircle/bgit/commit/4435aba169a68cd271b6e59af7007d8cc9733526))
+    - Update LICENSE owners & lint ([`261ccfe`](https://github.com/rootCircle/bgit/commit/261ccfe5b29066a98e804b9f4f189e5bba603a82))
+    - Remove codecov integration ([`2d435c1`](https://github.com/rootCircle/bgit/commit/2d435c16783331a1780048df8a23ec5e2793143f))
+    - Remove unnecessary check of unstaged files ([`1684ada`](https://github.com/rootCircle/bgit/commit/1684ada0186c5d237fe7d0b41dc4904c8624de53))
+    - Resolve nitpicks ([`e543f19`](https://github.com/rootCircle/bgit/commit/e543f195bdf7d745def11fe52094281ee1b1756b))
+    - Replace force with force_with_lease ([`2dea085`](https://github.com/rootCircle/bgit/commit/2dea085e9d52ab736b1739f6a41ee26fd570d3fa))
+    - Strip .git suffix from cloned repository folder names ([`3670d97`](https://github.com/rootCircle/bgit/commit/3670d97992f8237be5744d89251a0ad66a1351a7))
+    - Add library links ([`c4ce388`](https://github.com/rootCircle/bgit/commit/c4ce388fb4278ede5d8720f75540f0a7b6a82132))
+    - Refactor file size checks, add install target ([`dcd50c9`](https://github.com/rootCircle/bgit/commit/dcd50c9b763dd66a80393f2c81d8951a108977c5))
+    - Improve large file detection and LFS suggestion ([`66531db`](https://github.com/rootCircle/bgit/commit/66531db9854a3d28d694177230e24d4943022c42))
+    - Add pre-commit hook and file size checks ([`ecbf6af`](https://github.com/rootCircle/bgit/commit/ecbf6af27a7eb763437b161c4041db44f8bfd0c8))
+    - Use constants for default file size limits ([`c74a22c`](https://github.com/rootCircle/bgit/commit/c74a22ca4c41c62a3d573084494201d597905b14))
+    - Fix overide sole contributor values ([`3dbf649`](https://github.com/rootCircle/bgit/commit/3dbf649e29f1457d2c0ee50394b07fc390d5eb02))
+    - Fix broken image in ARCHITECTURE.md ([`750b25f`](https://github.com/rootCircle/bgit/commit/750b25f515e47f27ba0093b3cb157ff688eac4ec))
+</details>
+
 ## v0.3.0 (2025-06-09)
+
+<csr-id-27967a17ab68bf3e07088c1fab6de4112f890f1e/>
+<csr-id-32430e09cd5449b53cdda54c04435ca10af88b78/>
+<csr-id-8cb9729c58bf55edb4e4a9336812fd6590259b2c/>
+<csr-id-66eba1cb67da5875d382e94b79a874e283a200e2/>
+<csr-id-22a7a4f9c35048fabe48b23f2505dc1993daf177/>
+<csr-id-2629db5bcd9dd8c9f8571f00841fbc632c19ede5/>
+<csr-id-eea360d35a74e124e56cacaaa3788721dd83508f/>
+<csr-id-cf15617fc71e1fe3ed0f8cca8bf7b3f0d948d377/>
+<csr-id-36d716c5a95ef05a9ffae08c73dbe4b825868b75/>
+<csr-id-69e547e97cd69bbe633153db32f1ac0a1c5ffd68/>
+<csr-id-717f4c431234d0c36332f54951c0568c21af8c9a/>
+<csr-id-7aa713ebf8454c70e3c7e8e5d3743833490ce74d/>
+<csr-id-82d6a655f75a6639f144cf8b9cb2cea12cf8c9c4/>
+<csr-id-f3bd90f4c2664d192d4ff48ce9141fd02adae192/>
+<csr-id-09089edc9d092e3daeb83b7a07cd387961d51bab/>
+<csr-id-ea32487b5a552fbaf4ab3aaa19fcbd4aaf84c308/>
 
 ### Chore
 
@@ -34,6 +183,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-c0eb8ca7fb8e9c900cdb3990b941fc855e5cb681/>
+<csr-id-6e24afcd67583b4cc54b83d4f88786cf892e1e94/>
+<csr-id-420c4a287b5ab93ce5766a65cf993b852291bc6c/>
+<csr-id-6691c85efd0353b4f899661096c837297f8cb97d/>
+<csr-id-4289ea4ffa5b3b83f0c08f112bb38144d58bda62/>
+<csr-id-2dd132bd676e1a39f585b4d210addf61cd50c18f/>
+<csr-id-955b69109c3684735a7964ad178f17ca849ad438/>
+<csr-id-599aae8e9552c7d8720851bc135d7cc1e50e42fc/>
+<csr-id-280a08ac17d2e7385c3b0b800218934add36bc4d/>
+<csr-id-e08d075820f025c8a20fba78ac0ca9c65b6b3e92/>
+<csr-id-64de7d6d4b8f630e391f9a41dd16c51a2dbd6ed3/>
+<csr-id-45747918d39402f83f798366f1cad17f5faf8ccb/>
+<csr-id-2e6460d940137dc4d096de39bf4facd6687cf24c/>
+
  - <csr-id-d5f5f4da14deb4146e5ac2914ac7322fe54fb122/> add multi_select
  - <csr-id-a3f1cad2c0d4aefdcdb219c616d36a65a52547ae/> add git configuration management and workflow flag constants
  - <csr-id-e730fac235e10bf49bd8b8a56e409837954be134/> update workflow rules to improve error handling and integrate rule configuration
@@ -54,39 +217,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-a00ef5674312e9bf50a4a0c1c9c6e21ca55d43ac/> Add Git user.name and user.email setup rule
  - <csr-id-4dec86a563e54456dbf84f5e0879822b1e56a881/> Improve branch creation and validation
    - Preserve staging state when popping stash
-   - Enhance branch name validation with specific checks.
-   - Add debugging tips in error message.
- - <csr-id-c0eb8ca7fb8e9c900cdb3990b941fc855e5cb681/> Improve hook executor logging
-   This commit enhances the hook executor's logging capabilities by:
-   
-   - Switching stdout messages from info! to debug!
-   - Switching stderr messages from error! to info!
-   
-   These changes provide more granular control over log levels and
-   prevent potentially noisy or misleading error logs.
- - <csr-id-6e24afcd67583b4cc54b83d4f88786cf892e1e94/> Add post-git clone hook and update README
-   This commit introduces a new post-git clone hook that installs
-   rustup. It also updates the README with a link to a sample
-   repository. The post-git_clone hook installs rust for bgit usage.
-   Additionally, log statements in hook_executor were updated, and a
-   debug log was introduced in AICommit.
- - <csr-id-420c4a287b5ab93ce5766a65cf993b852291bc6c/> Add pre-commit hook and improve prompts
-   This commit introduces a pre-commit hook to run checks before commits and improves the user experience by capitalizing the "Yes" and "No" options in the interactive prompt.
- - <csr-id-6691c85efd0353b4f899661096c837297f8cb97d/> Add verbosity flag for logging
-   This commit introduces a verbosity flag to control the level of logging.
-   The flag accepts -v, -vv, -vvv to set log level to INFO, DEBUG, TRACE, respectively.
-   This allows users to control the amount of logging information.
- - <csr-id-4289ea4ffa5b3b83f0c08f112bb38144d58bda62/> Add logging for debugging
-   Adds env_logger and log crates for debugging purposes.
-   Also, disables the pre_git_add hook for now.
- - <csr-id-2dd132bd676e1a39f585b4d210addf61cd50c18f/> add no_secrets and repo_too_big
- - <csr-id-955b69109c3684735a7964ad178f17ca849ad438/> WF complete-all modules of workflow tested and working
- - <csr-id-599aae8e9552c7d8720851bc135d7cc1e50e42fc/> actions and prompt WF complete till askcommit
- - <csr-id-280a08ac17d2e7385c3b0b800218934add36bc4d/> complete push/pull WF. Known error at events/git_status/has_unpushed_commits
- - <csr-id-e08d075820f025c8a20fba78ac0ca9c65b6b3e92/> add actions and prompt WF till restore changes
- - <csr-id-64de7d6d4b8f630e391f9a41dd16c51a2dbd6ed3/> add actions and prompts WF till add to staging
- - <csr-id-45747918d39402f83f798366f1cad17f5faf8ccb/> add actions and prompt WF till stash events
- - <csr-id-2e6460d940137dc4d096de39bf4facd6687cf24c/> improve Task enum matching logic in PartialEq implementation
+- Enhance branch name validation with specific checks.
+- Add debugging tips in error message.
+- Switching stdout messages from info! to debug!
+- Switching stderr messages from error! to info!
 
 ### Bug Fixes
 
@@ -129,7 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 61 commits contributed to the release over the course of 72 calendar days.
+ - 62 commits contributed to the release over the course of 72 calendar days.
  - 94 days passed between releases.
  - 52 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -141,6 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.3.0 ([`6ddca85`](https://github.com/rootCircle/bgit/commit/6ddca8542a4fe0a34492fc1659e613889f5ce802))
     - Bump version to 0.3.0 ([`36d716c`](https://github.com/rootCircle/bgit/commit/36d716c5a95ef05a9ffae08c73dbe4b825868b75))
     - Upgrade package ([`69e547e`](https://github.com/rootCircle/bgit/commit/69e547e97cd69bbe633153db32f1ac0a1c5ffd68))
     - Return error if restore mode is not specified ([`0580af6`](https://github.com/rootCircle/bgit/commit/0580af6234e2720148f1269232a1d116a4247046))
@@ -203,6 +338,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix ([`09089ed`](https://github.com/rootCircle/bgit/commit/09089edc9d092e3daeb83b7a07cd387961d51bab))
     - Improve Task enum matching logic in PartialEq implementation ([`2e6460d`](https://github.com/rootCircle/bgit/commit/2e6460d940137dc4d096de39bf4facd6687cf24c))
 </details>
+
+<csr-unknown>
+ Improve hook executor loggingThis commit enhances the hook executor’s logging capabilities by:These changes provide more granular control over log levels andprevent potentially noisy or misleading error logs. Add post-git clone hook and update READMEThis commit introduces a new post-git clone hook that installsrustup. It also updates the README with a link to a samplerepository. The post-git_clone hook installs rust for bgit usage.Additionally, log statements in hook_executor were updated, and adebug log was introduced in AICommit. Add pre-commit hook and improve promptsThis commit introduces a pre-commit hook to run checks before commits and improves the user experience by capitalizing the “Yes” and “No” options in the interactive prompt. Add verbosity flag for loggingThis commit introduces a verbosity flag to control the level of logging.The flag accepts -v, -vv, -vvv to set log level to INFO, DEBUG, TRACE, respectively.This allows users to control the amount of logging information. Add logging for debuggingAdds env_logger and log crates for debugging purposes.Also, disables the pre_git_add hook for now. add no_secrets and repo_too_big WF complete-all modules of workflow tested and working actions and prompt WF complete till askcommit complete push/pull WF. Known error at events/git_status/has_unpushed_commits add actions and prompt WF till restore changes add actions and prompts WF till add to staging add actions and prompt WF till stash events improve Task enum matching logic in PartialEq implementation<csr-unknown/>
 
 ## v0.2.1 (2025-03-07)
 
