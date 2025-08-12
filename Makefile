@@ -94,7 +94,7 @@ coverage:
 	cargo llvm-cov --all-features --workspace --no-clean --html --output-dir=coverage --open
 
 release:
-	cargo smart-release bgit --execute --update-crates-index
+	cargo smart-release bgit --execute --update-crates-index --no-changelog-github-release
 
 install:
 	cargo install --locked --path .
