@@ -28,14 +28,29 @@ bgit is a simplified wrapper for Git, designed specifically for absolute beginne
 
 ## Installation
 
-bgit is written in Rust, ensuring fast performance and reliability. To install bgit, follow these steps:
+### Quick Install precompiled Binary
 
-1. Ensure you have Rust installed. You can install Rust using rustup by following the instructions on [rustup.rs](https://rustup.rs/).
-2. Run
-
-    ```bash
-    cargo install bgit
+- Linux/macOS
+  
+  - ```bash
+    curl -fsSL https://raw.githubusercontent.com/rootCircle/bgit/main/scripts/install.sh | bash
     ```
+
+- Windows (PowerShell)
+
+  - ```psi
+    iwr -useb https://raw.githubusercontent.com/rootCircle/bgit/main/scripts/install.ps1 | iex
+    ```
+
+Advanced options, supported targets, checksums/signatures, and troubleshooting are documented here:
+
+- See [docs/INSTALL.md](./docs/INSTALL.md)
+
+### Install via Cargo
+
+```bash
+cargo install bgit
+```
 
 ## Getting Started
 
