@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.2 (2025-08-13)
+
+### Other
+
+ - <csr-id-2df5ff4a7841a13371a0341c30205e042d0a8fa0/> add release workflow and update Makefile
+   - Add GitHub Actions workflow for automated releases on tag pushes.
+   - Workflow includes building artifacts for different OS, verifying tag
+     matches Cargo.toml, and creating a GitHub release with assets.
+   - Update Makefile to use `--no-changelog-github-release` with `cargo
+     smart-release` to prevent duplicate changelog entries.
+ - <csr-id-4129d48f5a7d491271b7866d5e8f015788f5f709/> clippy fixes
+
+### Refactor
+
+ - <csr-id-5ff6992d9c07e228f410929084a2218ae83e1058/> Extract auth callbacks to shared module
+   - Moved git authentication logic from `GitPull::setup_auth_callbacks` to a new shared function `setup_auth_callbacks` in `src/auth/git_auth.rs`.
+   - Updated `GitPull::create_fetch_options` to use the new shared function.
+   - This promotes code reuse and centralizes authentication handling.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Extract auth callbacks to shared module ([`5ff6992`](https://github.com/rootCircle/bgit/commit/5ff6992d9c07e228f410929084a2218ae83e1058))
+    - Add release workflow and update Makefile ([`2df5ff4`](https://github.com/rootCircle/bgit/commit/2df5ff4a7841a13371a0341c30205e042d0a8fa0))
+    - Clippy fixes ([`4129d48`](https://github.com/rootCircle/bgit/commit/4129d48f5a7d491271b7866d5e8f015788f5f709))
+</details>
+
 ## v0.3.1 (2025-08-13)
+
+<csr-id-e0cd3717282b40f02d92fee7b594b62be739bc3e/>
+<csr-id-8eae1be826e4fa704bdfdd4a054a15ef208e9c98/>
+<csr-id-4435aba169a68cd271b6e59af7007d8cc9733526/>
+<csr-id-261ccfe5b29066a98e804b9f4f189e5bba603a82/>
+<csr-id-7fa30f5df8cef0f28fca0d664d23aee9cc93b3e6/>
+<csr-id-a8b37f7fd09dc39ef45c926dcca23ac6e716d64c/>
+<csr-id-2d435c16783331a1780048df8a23ec5e2793143f/>
+<csr-id-66531db9854a3d28d694177230e24d4943022c42/>
+<csr-id-02492a4adcef732063d5174d7ba53e0b8ad6a4bc/>
 
 ### Chore
 
@@ -21,48 +70,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-18ab7a43e51164a4b481260b570e040af5f32d76/>
+<csr-id-886e05e1fb9ce299d9ee259696dce24ced9d5ac0/>
+<csr-id-562f83824897e4dc5d768b74e215172ef83545bc/>
+<csr-id-dcd50c9b763dd66a80393f2c81d8951a108977c5/>
+<csr-id-ecbf6af27a7eb763437b161c4041db44f8bfd0c8/>
+<csr-id-c74a22ca4c41c62a3d573084494201d597905b14/>
+
  - <csr-id-71760ebb6c8e6903f0c353938f0cef04ba590c33/> Enhance SSH Key Handling and Git Push Functionality
    - Improved SSH key handling by adding the `home` crate to determine the user's home directory and fixing ssh-agent lifecycle issues.
-   - Added support for force-with-lease via git CLI, enhancing the push functionality.
-   - Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.
-   - SSH passphrase support
-   - Improve force-with-lease logic
-   - Enhanced error messages and remote determination for better user experience.
-   - Updated authentication workflow to support passphrase and personal access tokens (PAT).
-   - Extracted authentication logic from git_clone, git_pull and git_push
+- Added support for force-with-lease via git CLI, enhancing the push functionality.
+- Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.
+- SSH passphrase support
+- Improve force-with-lease logic
+- Enhanced error messages and remote determination for better user experience.
+- Updated authentication workflow to support passphrase and personal access tokens (PAT).
+- Extracted authentication logic from git_clone, git_pull and git_push
      and refactored it to a auth module.
- - <csr-id-18ab7a43e51164a4b481260b570e040af5f32d76/> Improve rule efficiency and add Rust 1.88 support
-   This commit introduces several changes to improve the efficiency of rules and updates the Rust version to 1.88.
-   
-   - Updated Rust version to 1.88 in Cargo.toml.
-   - Added combined boolean expressions across multiple files.
- - <csr-id-886e05e1fb9ce299d9ee259696dce24ced9d5ac0/> Refactor to rig-core and validate commit message
-   Switches from google-generative-ai-rs to rig-core for commit
-   message generation.  Adds ValidateConventionalCommit tool for
-   prompting an LLM to generate commit messages, and removes
-   google-generative-ai-rs and related dependencies.
-   
-   This resolves issues with response handling.
- - <csr-id-562f83824897e4dc5d768b74e215172ef83545bc/> IT setup
- - <csr-id-dcd50c9b763dd66a80393f2c81d8951a108977c5/> Refactor file size checks, add install target
-   This commit refactors the way file sizes are checked and
-   introduces an install target in the Makefile.
-   
-   - Reduced default max large file size to 2MiB
-   - Increased default max repo size to 128MiB
-   - Increased default cumulative staged file size to 32MiB
-   - Added directory size calculation to `get_path_size`
-   - Added an install target to Makefile
- - <csr-id-ecbf6af27a7eb763437b161c4041db44f8bfd0c8/> Add pre-commit hook and file size checks
-   This commit introduces a pre-commit hook to run formatting and
-   linting, and implements a check to ensure that files staged are not too large to
-   prevent performance issues with Git.
-   
-   - Added a `precommit-fix` target to the Makefile to run cargo fmt and clippy.
-   - Implemented a rule to check staged file sizes.
-   - Added file size rule to push action to prevent pushing large files.
- - <csr-id-c74a22ca4c41c62a3d573084494201d597905b14/> Use constants for default file size limits
-   This commit introduces constants for default maximum file and repository sizes, and uses these constants in the relevant rules, improving maintainability and configurability.
+- Updated Rust version to 1.88 in Cargo.toml.
+- Added combined boolean expressions across multiple files.
+- Reduced default max large file size to 2MiB
+- Increased default max repo size to 128MiB
+- Increased default cumulative staged file size to 32MiB
+- Added directory size calculation to `get_path_size`
+- Added an install target to Makefile
+- Added a `precommit-fix` target to the Makefile to run cargo fmt and clippy.
+- Implemented a rule to check staged file sizes.
+- Added file size rule to push action to prevent pushing large files.
 
 ### Bug Fixes
 
@@ -96,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 26 commits contributed to the release over the course of 63 calendar days.
+ - 27 commits contributed to the release over the course of 63 calendar days.
  - 64 days passed between releases.
  - 24 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#7](https://github.com/rootCircle/bgit/issues/7)
@@ -110,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#7](https://github.com/rootCircle/bgit/issues/7)**
     - Enhance SSH Key Handling and Git Push Functionality ([`71760eb`](https://github.com/rootCircle/bgit/commit/71760ebb6c8e6903f0c353938f0cef04ba590c33))
  * **Uncategorized**
+    - Release bgit v0.3.1 ([`bad33a9`](https://github.com/rootCircle/bgit/commit/bad33a931050b0e48b8050ef84c4ad8479d62515))
     - Git pull fix ([`e0cd371`](https://github.com/rootCircle/bgit/commit/e0cd3717282b40f02d92fee7b594b62be739bc3e))
     - Improve rule efficiency and add Rust 1.88 support ([`18ab7a4`](https://github.com/rootCircle/bgit/commit/18ab7a43e51164a4b481260b570e040af5f32d76))
     - Refactor to rig-core and validate commit message ([`886e05e`](https://github.com/rootCircle/bgit/commit/886e05e1fb9ce299d9ee259696dce24ced9d5ac0))
@@ -136,6 +171,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix overide sole contributor values ([`3dbf649`](https://github.com/rootCircle/bgit/commit/3dbf649e29f1457d2c0ee50394b07fc390d5eb02))
     - Fix broken image in ARCHITECTURE.md ([`750b25f`](https://github.com/rootCircle/bgit/commit/750b25f515e47f27ba0093b3cb157ff688eac4ec))
 </details>
+
+<csr-unknown>
+ Improve rule efficiency and add Rust 1.88 supportThis commit introduces several changes to improve the efficiency of rules and updates the Rust version to 1.88. Refactor to rig-core and validate commit messageSwitches from google-generative-ai-rs to rig-core for commitmessage generation.  Adds ValidateConventionalCommit tool forprompting an LLM to generate commit messages, and removesgoogle-generative-ai-rs and related dependencies.This resolves issues with response handling. IT setup Refactor file size checks, add install targetThis commit refactors the way file sizes are checked andintroduces an install target in the Makefile. Add pre-commit hook and file size checksThis commit introduces a pre-commit hook to run formatting andlinting, and implements a check to ensure that files staged are not too large toprevent performance issues with Git. Use constants for default file size limitsThis commit introduces constants for default maximum file and repository sizes, and uses these constants in the relevant rules, improving maintainability and configurability.<csr-unknown/>
 
 ## v0.3.0 (2025-06-09)
 
@@ -217,10 +255,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-a00ef5674312e9bf50a4a0c1c9c6e21ca55d43ac/> Add Git user.name and user.email setup rule
  - <csr-id-4dec86a563e54456dbf84f5e0879822b1e56a881/> Improve branch creation and validation
    - Preserve staging state when popping stash
-- Enhance branch name validation with specific checks.
-- Add debugging tips in error message.
-- Switching stdout messages from info! to debug!
-- Switching stderr messages from error! to info!
 
 ### Bug Fixes
 
@@ -340,7 +374,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- Improve hook executor loggingThis commit enhances the hook executor’s logging capabilities by:These changes provide more granular control over log levels andprevent potentially noisy or misleading error logs. Add post-git clone hook and update READMEThis commit introduces a new post-git clone hook that installsrustup. It also updates the README with a link to a samplerepository. The post-git_clone hook installs rust for bgit usage.Additionally, log statements in hook_executor were updated, and adebug log was introduced in AICommit. Add pre-commit hook and improve promptsThis commit introduces a pre-commit hook to run checks before commits and improves the user experience by capitalizing the “Yes” and “No” options in the interactive prompt. Add verbosity flag for loggingThis commit introduces a verbosity flag to control the level of logging.The flag accepts -v, -vv, -vvv to set log level to INFO, DEBUG, TRACE, respectively.This allows users to control the amount of logging information. Add logging for debuggingAdds env_logger and log crates for debugging purposes.Also, disables the pre_git_add hook for now. add no_secrets and repo_too_big WF complete-all modules of workflow tested and working actions and prompt WF complete till askcommit complete push/pull WF. Known error at events/git_status/has_unpushed_commits add actions and prompt WF till restore changes add actions and prompts WF till add to staging add actions and prompt WF till stash events improve Task enum matching logic in PartialEq implementation<csr-unknown/>
+Enhance branch name validation with specific checks.Add debugging tips in error message.Switching stdout messages from info! to debug!Switching stderr messages from error! to info!<csr-unknown/>
 
 ## v0.2.1 (2025-03-07)
 
