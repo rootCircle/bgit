@@ -50,6 +50,15 @@ impl Rule for RemoteExists {
     fn try_fix(&self) -> Result<bool, Box<BGitError>> {
         println!("Required remote '{}' does not exist.", self.required_remote);
 
+        println!(
+            r#"Helpful tips:
+  - If you don't have a remote repository yet, create one: https://github.com/new
+  - Prefer SSH URLs (recommended) for better auth: git@github.com:<user>/<repo>.git
+  - To copy the SSH URL: on GitHub, open your repository, click "Code" → "SSH" → copy the URL.
+
+You can paste the SSH URL below (HTTPS also works, but SSH is preferred)."#
+        );
+
         let repo_url: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt(format!(
                 "Enter the repository URL for remote '{}'",
@@ -152,7 +161,7 @@ impl RemoteExists {
                     };
 
                     Ok(RuleOutput::Exception(format!(
-                        "Required remote '{remote_name}' does not exist. {available_remotes}"
+                        "Required remote '{remote_name}' does not exist. {available_remotes}. Hint: create a repo at https://github.com/new and add it as '{remote_name}' (prefer SSH). In GitHub, click 'Code' → 'SSH' and copy the URL, then run: git remote add {remote_name} <ssh_url>"
                     )))
                 }
             }
