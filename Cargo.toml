@@ -19,8 +19,8 @@ keywords = ["git", "beginner-friendly", "libgit-rs", "hooks", "smart-rules"]
 rust-version = "1.88"
 
 [dependencies]
-clap = { version = "4.5.43", features = ["derive"] }
-clap_complete = "4.5.56"
+clap = { version = "4.5.45", features = ["derive"] }
+clap_complete = "4.5.57"
 colored = "3.0.0"
 dialoguer = "0.11.0"
 env_logger = "0.11.8"
@@ -39,6 +39,9 @@ which = "8.0.0"
 [dev-dependencies]
 assert_cmd = "2.0.17"
 tempfile = "3.20.0"
+
+[target.'cfg(target_env = "musl")'.dependencies]
+git2 = { version = "0.20.2", features = ["vendored-openssl"] }
 
 [profile.dev]
 opt-level = 0
