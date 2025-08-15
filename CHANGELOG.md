@@ -5,7 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.3 (2025-08-16)
+
+### Documentation
+
+ - <csr-id-377aeb54882c7690badd28a42f3493b54e9c9eda/> Add HOOKS.md and improve hook execution
+   - Document bgit's hook system, including portable (`.bgit/hooks`) and native Git hooks.
+   - Clarify hook execution order and platform notes.
+   - Implement support for standard Git `pre-commit` and `post-commit` hooks.
+   - Add logic to resolve `core.hooksPath` from local, global, and `.git/hooks`.
+   - Warn users about unsupported native Git hooks (e.g., `pre-push`, `commit-msg`).
+   - Improve hook execution fallback for non-executable files on Unix-like systems.
+   - Update USAGE.md with a minor correction to the code block for the repository URL.
+ - <csr-id-178e216e48ecab71464b2750863a90a0ea1b6f4c/> Update installation instructions and add install scripts
+   - Added `docs/INSTALL.md` with comprehensive installation details.
+   - Introduced `scripts/install.sh` for Linux/macOS and `scripts/install.ps1` for Windows to automate installation.
+   - Updated `README.md` to reference the new installation guide and include quick install commands.
+   - Enhanced installation instructions to cover precompiled binaries, Cargo installation, advanced options, and troubleshooting.
+
+### New Features
+
+ - <csr-id-e39ff22ae46c44be621b1df0a594539c0dcd9f35/> Add cross compilation and artifact packaging for more targets
+   - Install `cross` for Linux builds.
+   - Add build steps for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, and `aarch64-unknown-linux-musl` targets on Linux.
+   - Add build step for `aarch64-apple-darwin` target on macOS.
+   - Add artifact packaging for the newly supported Linux and macOS targets.
+   - Generate aggregate checksums in `RELEASES.txt` for all packaged artifacts.
+   - Add optional GPG signing for `RELEASES.txt`.
+
+### Refactor
+
+ - <csr-id-86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd/> Improve error messages and tips for adding remotes
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 2 calendar days.
+ - 2 days passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Add HOOKS.md and improve hook execution ([`377aeb5`](https://github.com/rootCircle/bgit/commit/377aeb54882c7690badd28a42f3493b54e9c9eda))
+    - Improve error messages and tips for adding remotes ([`86564ed`](https://github.com/rootCircle/bgit/commit/86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd))
+    - Update installation instructions and add install scripts ([`178e216`](https://github.com/rootCircle/bgit/commit/178e216e48ecab71464b2750863a90a0ea1b6f4c))
+    - Add cross compilation and artifact packaging for more targets ([`e39ff22`](https://github.com/rootCircle/bgit/commit/e39ff22ae46c44be621b1df0a594539c0dcd9f35))
+</details>
+
 ## v0.3.2 (2025-08-13)
+
+<csr-id-2df5ff4a7841a13371a0341c30205e042d0a8fa0/>
+<csr-id-4129d48f5a7d491271b7866d5e8f015788f5f709/>
+<csr-id-5ff6992d9c07e228f410929084a2218ae83e1058/>
 
 ### Other
 
@@ -28,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -39,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.3.2 ([`611a386`](https://github.com/rootCircle/bgit/commit/611a38603f3288c24e2df626c39316d4e6cf67de))
     - Extract auth callbacks to shared module ([`5ff6992`](https://github.com/rootCircle/bgit/commit/5ff6992d9c07e228f410929084a2218ae83e1058))
     - Add release workflow and update Makefile ([`2df5ff4`](https://github.com/rootCircle/bgit/commit/2df5ff4a7841a13371a0341c30205e042d0a8fa0))
     - Clippy fixes ([`4129d48`](https://github.com/rootCircle/bgit/commit/4129d48f5a7d491271b7866d5e8f015788f5f709))
@@ -79,24 +138,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-71760ebb6c8e6903f0c353938f0cef04ba590c33/> Enhance SSH Key Handling and Git Push Functionality
    - Improved SSH key handling by adding the `home` crate to determine the user's home directory and fixing ssh-agent lifecycle issues.
-- Added support for force-with-lease via git CLI, enhancing the push functionality.
-- Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.
-- SSH passphrase support
-- Improve force-with-lease logic
-- Enhanced error messages and remote determination for better user experience.
-- Updated authentication workflow to support passphrase and personal access tokens (PAT).
-- Extracted authentication logic from git_clone, git_pull and git_push
-     and refactored it to a auth module.
-- Updated Rust version to 1.88 in Cargo.toml.
-- Added combined boolean expressions across multiple files.
-- Reduced default max large file size to 2MiB
-- Increased default max repo size to 128MiB
-- Increased default cumulative staged file size to 32MiB
-- Added directory size calculation to `get_path_size`
-- Added an install target to Makefile
-- Added a `precommit-fix` target to the Makefile to run cargo fmt and clippy.
-- Implemented a rule to check staged file sizes.
-- Added file size rule to push action to prevent pushing large files.
 
 ### Bug Fixes
 
@@ -173,7 +214,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- Improve rule efficiency and add Rust 1.88 supportThis commit introduces several changes to improve the efficiency of rules and updates the Rust version to 1.88. Refactor to rig-core and validate commit messageSwitches from google-generative-ai-rs to rig-core for commitmessage generation.  Adds ValidateConventionalCommit tool forprompting an LLM to generate commit messages, and removesgoogle-generative-ai-rs and related dependencies.This resolves issues with response handling. IT setup Refactor file size checks, add install targetThis commit refactors the way file sizes are checked andintroduces an install target in the Makefile. Add pre-commit hook and file size checksThis commit introduces a pre-commit hook to run formatting andlinting, and implements a check to ensure that files staged are not too large toprevent performance issues with Git. Use constants for default file size limitsThis commit introduces constants for default maximum file and repository sizes, and uses these constants in the relevant rules, improving maintainability and configurability.<csr-unknown/>
+Added support for force-with-lease via git CLI, enhancing the push functionality.Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.SSH passphrase supportImprove force-with-lease logicEnhanced error messages and remote determination for better user experience.Updated authentication workflow to support passphrase and personal access tokens (PAT).Extracted authentication logic from git_clone, git_pull and git_pushand refactored it to a auth module.Updated Rust version to 1.88 in Cargo.toml.Added combined boolean expressions across multiple files.Reduced default max large file size to 2MiBIncreased default max repo size to 128MiBIncreased default cumulative staged file size to 32MiBAdded directory size calculation to get_path_sizeAdded an install target to MakefileAdded a precommit-fix target to the Makefile to run cargo fmt and clippy.Implemented a rule to check staged file sizes.Added file size rule to push action to prevent pushing large files.<csr-unknown/>
 
 ## v0.3.0 (2025-06-09)
 
@@ -372,9 +413,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix ([`09089ed`](https://github.com/rootCircle/bgit/commit/09089edc9d092e3daeb83b7a07cd387961d51bab))
     - Improve Task enum matching logic in PartialEq implementation ([`2e6460d`](https://github.com/rootCircle/bgit/commit/2e6460d940137dc4d096de39bf4facd6687cf24c))
 </details>
-
-<csr-unknown>
-Enhance branch name validation with specific checks.Add debugging tips in error message.Switching stdout messages from info! to debug!Switching stderr messages from error! to info!<csr-unknown/>
 
 ## v0.2.1 (2025-03-07)
 
