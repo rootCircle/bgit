@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use super::error::create_hook_error;
 use super::process::handle_process_output;
 use crate::bgit_error::BGitError;
+use log::debug;
 
 pub fn execute_hook_util(event_hook_path: &Path, event_name: &str) -> Result<bool, Box<BGitError>> {
     if !event_hook_path.exists() {
@@ -42,13 +43,45 @@ pub fn execute_hook_util(event_hook_path: &Path, event_name: &str) -> Result<boo
         })?;
     }
 
-    // Spawn the command
-    let mut child = Command::new(event_hook_path_str)
+    // Spawn the command. If the file lacks a shebang or isn't a native binary,
+    // Linux/Unix returns ENOEXEC (os error 8). In that case, fall back to /bin/sh <file>.
+    let spawn_direct = Command::new(event_hook_path_str)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| create_hook_error("Failed to run event-hook", &e.to_string(), event_name))?;
+        .spawn();
+
+    let mut child = match spawn_direct {
+        Ok(child) => child,
+        Err(e) => {
+            if e.raw_os_error() == Some(8) {
+                // ENOEXEC: try running via POSIX shell
+                debug!(
+                    "Hook '{}' not directly executable (ENOEXEC). Falling back to /bin/sh {}",
+                    event_name, event_hook_path_str
+                );
+                Command::new("/bin/sh")
+                    .arg(event_hook_path_str)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e2| {
+                        create_hook_error(
+                            "Failed to run event-hook",
+                            &format!("{} (fallback /bin/sh also failed: {})", e, e2),
+                            event_name,
+                        )
+                    })?
+            } else {
+                return Err(create_hook_error(
+                    "Failed to run event-hook",
+                    &e.to_string(),
+                    event_name,
+                ));
+            }
+        }
+    };
 
     // Handle stdout and stderr
     handle_process_output(&mut child)?;

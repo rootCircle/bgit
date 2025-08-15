@@ -1,6 +1,7 @@
 use colored::Colorize;
-use git2::Repository;
+use git2::{Config, Repository};
 use std::env;
+use std::path::PathBuf;
 
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP},
@@ -54,12 +55,30 @@ pub(crate) trait AtomicEvent {
     // Hooks
     fn pre_execute_hook(&self) -> Result<bool, Box<BGitError>> {
         let event_hook_file_name: String = format!("pre_{}", self.get_name());
-        self.execute_hook(&event_hook_file_name, HookType::PreEvent)
+        let bgit_ok = self.execute_hook(&event_hook_file_name, HookType::PreEvent)?;
+        if !bgit_ok {
+            return Ok(false);
+        }
+
+        if self.get_name() == "git_commit" {
+            self.execute_standard_git_hook("pre-commit", HookType::PreEvent)?;
+        }
+
+        Ok(true)
     }
 
     fn post_execute_hook(&self) -> Result<bool, Box<BGitError>> {
         let post_event_hook_file_name: String = format!("post_{}", self.get_name());
-        self.execute_hook(&post_event_hook_file_name, HookType::PostEvent)
+        let bgit_ok = self.execute_hook(&post_event_hook_file_name, HookType::PostEvent)?;
+        if !bgit_ok {
+            return Ok(false);
+        }
+
+        if self.get_name() == "git_commit" {
+            self.execute_standard_git_hook("post-commit", HookType::PostEvent)?;
+        }
+
+        Ok(true)
     }
 
     /// Run hooks inside `{RepositoryBase}/.bgit/hooks/[pre|post]-{hook_name}`
@@ -100,6 +119,81 @@ pub(crate) trait AtomicEvent {
                 );
                 execute_hook_util(&hook_path, self.get_name())
             }
+        }
+    }
+
+    /// Execute standard Git hooks (e.g., pre-commit, post-commit) if present.
+    /// Resolves core.hooksPath (local, then global) and falls back to .git/hooks.
+    fn execute_standard_git_hook(
+        &self,
+        hook_name: &str,
+        hook_type: HookType,
+    ) -> Result<bool, Box<BGitError>> {
+        if let Some(hooks_dir) = Self::resolve_standard_hooks_dir() {
+            let hook_path = hooks_dir.join(hook_name);
+            if hook_path.exists() {
+                let hook_type_str = match hook_type {
+                    HookType::PreEvent => "pre",
+                    HookType::PostEvent => "post",
+                };
+                eprintln!(
+                    "{} Running standard Git {}-hook: {}",
+                    PENGUIN_EMOJI,
+                    hook_type_str,
+                    hook_name.cyan().bold()
+                );
+                return execute_hook_util(&hook_path, hook_name);
+            }
+        }
+        Ok(true)
+    }
+
+    /// Find the directory where standard Git hooks live.
+    /// Priority: repo core.hooksPath -> global core.hooksPath -> .git/hooks
+    fn resolve_standard_hooks_dir() -> Option<PathBuf> {
+        let cwd = env::current_dir().ok()?;
+        let repo = Repository::discover(&cwd).ok()?;
+
+        if let Ok(cfg) = repo.config()
+            && let Ok(val) = cfg.get_string("core.hooksPath")
+        {
+            let dir = Self::normalize_hooks_path(Self::repo_root_path(&repo)?, &val);
+            return Some(dir);
+        }
+
+        if let Ok(global) = Config::open_default()
+            && let Ok(val) = global.get_string("core.hooksPath")
+        {
+            let dir = Self::normalize_hooks_path(Self::repo_root_path(&repo)?, &val);
+            return Some(dir);
+        }
+
+        Some(repo.path().join("hooks"))
+    }
+
+    fn repo_root_path(repo: &Repository) -> Option<PathBuf> {
+        if let Some(workdir) = repo.workdir() {
+            Some(workdir.to_path_buf())
+        } else {
+            repo.path().parent().map(|p| p.to_path_buf())
+        }
+    }
+
+    fn normalize_hooks_path(repo_root: PathBuf, configured: &str) -> PathBuf {
+        let expanded = if let Some(rest) = configured.strip_prefix("~/") {
+            if let Some(home_dir) = home::home_dir() {
+                home_dir.join(rest)
+            } else {
+                PathBuf::from(configured)
+            }
+        } else {
+            PathBuf::from(configured)
+        };
+
+        if expanded.is_absolute() {
+            expanded
+        } else {
+            repo_root.join(expanded)
         }
     }
 

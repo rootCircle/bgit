@@ -3,7 +3,9 @@ use crate::config::{WorkflowRules, WorkflowSteps};
 use crate::step::Task::{ActionStepTask, PromptStepTask};
 use crate::step::{Step, Task};
 use colored::Colorize;
+use git2::{Config, Repository};
 use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
+use log::{debug, warn};
 use std::time::Duration;
 use std::time::Instant;
 
@@ -95,6 +97,8 @@ impl WorkflowQueue {
             Step::Start(task) => {
                 let started = Instant::now();
 
+                Self::warn_unsupported_client_hooks_if_any();
+
                 let mut next_step: Step =
                     self.run_step_and_traverse(workflow_config_flags, workflow_rules_config, task)?;
 
@@ -148,6 +152,108 @@ impl WorkflowQueue {
                 NO_EVENT,
                 NO_RULE,
             ))),
+        }
+    }
+}
+
+impl WorkflowQueue {
+    fn resolve_standard_hooks_dir() -> Option<std::path::PathBuf> {
+        let cwd = std::env::current_dir().ok()?;
+        let repo = Repository::discover(&cwd).ok()?;
+        if let Ok(cfg) = repo.config()
+            && let Ok(val) = cfg.get_string("core.hooksPath")
+        {
+            return Some(Self::normalize_hooks_path(&repo, &val));
+        }
+        if let Ok(global) = Config::open_default()
+            && let Ok(val) = global.get_string("core.hooksPath")
+        {
+            return Some(Self::normalize_hooks_path(&repo, &val));
+        }
+        Some(repo.path().join("hooks"))
+    }
+
+    fn normalize_hooks_path(repo: &Repository, configured: &str) -> std::path::PathBuf {
+        let expanded = if let Some(rest) = configured.strip_prefix("~/") {
+            if let Some(home_dir) = home::home_dir() {
+                home_dir.join(rest)
+            } else {
+                std::path::PathBuf::from(configured)
+            }
+        } else {
+            std::path::PathBuf::from(configured)
+        };
+        if expanded.is_absolute() {
+            expanded
+        } else {
+            let repo_root = if let Some(wd) = repo.workdir() {
+                wd.to_path_buf()
+            } else {
+                repo.path()
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+            };
+            repo_root.join(expanded)
+        }
+    }
+
+    fn warn_unsupported_client_hooks_if_any() {
+        if let Some(hooks_dir) = Self::resolve_standard_hooks_dir() {
+            debug!("Resolved standard Git hooks path: {}", hooks_dir.display());
+            // Client-side hooks we DO support explicitly: pre-commit, post-commit
+            const SUPPORTED: [&str; 2] = ["pre-commit", "post-commit"];
+            // Common client-side hook names per `git hooks` docs
+            const CLIENT_HOOKS: [&str; 13] = [
+                "applypatch-msg",
+                "commit-msg",
+                "fsmonitor-watchman",
+                "post-commit",
+                "post-merge",
+                "post-checkout",
+                "post-rewrite",
+                "post-update",
+                "pre-applypatch",
+                "pre-commit",
+                "pre-merge-commit",
+                "pre-push",
+                "pre-rebase",
+            ];
+
+            if let Ok(entries) = std::fs::read_dir(&hooks_dir) {
+                let mut unsupported_found: Vec<String> = Vec::new();
+                let mut all_found: Vec<String> = Vec::new();
+                for e in entries.flatten() {
+                    let p = e.path();
+                    if p.is_file()
+                        && let Some(name) = p.file_name().and_then(|s| s.to_str())
+                    {
+                        if name.ends_with(".sample") {
+                            continue;
+                        }
+                        all_found.push(name.to_string());
+                        if CLIENT_HOOKS.contains(&name) && !SUPPORTED.contains(&name) {
+                            unsupported_found.push(name.to_string());
+                        }
+                    }
+                }
+                if !all_found.is_empty() {
+                    debug!(
+                        "Detected non-sample hooks at {}: {}",
+                        hooks_dir.display(),
+                        all_found.join(", ")
+                    );
+                } else {
+                    debug!("No non-sample hooks found at {}", hooks_dir.display());
+                }
+                if !unsupported_found.is_empty() {
+                    warn!(
+                        "Detected standard Git hooks not executed by bgit: {} (at {}). Only pre-commit and post-commit are supported. Use .bgit/hooks for portable hooks.",
+                        unsupported_found.join(", "),
+                        hooks_dir.display()
+                    );
+                }
+            }
         }
     }
 }

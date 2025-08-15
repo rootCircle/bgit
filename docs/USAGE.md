@@ -22,10 +22,8 @@ bgit is **still in development** and doesn't yet offer full parity with the Git 
 
    When bgit prompts you to either "init" or "clone", choose **clone**. Then paste the following repository URL:
 
-   ```
+   ```url
    https://github.com/rootCircle/bgit_clone_sample
    ```
 
    Press **Enter**, and watch bgit automatically set up the project for you!
-
-
