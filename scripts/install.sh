@@ -110,29 +110,68 @@ case "$OS" in
   macos) ART_OS="macos-latest";;
 esac
 
-# Try common arch labels + prefer musl on Linux if available via --prefer-musl or MUSL=1
+# Try common arch labels. We'll determine candidates and pick the first asset that exists.
 PREFER_MUSL=${PREFER_MUSL:-${MUSL:-0}}
 case "$ARCH" in
-  x86_64)
-    if [ "$OS" = linux ] && [ "$PREFER_MUSL" != 0 ]; then ART_ARCH="x86_64-musl"; else ART_ARCH="x86_64"; fi;;
-  aarch64) ART_ARCH="aarch64";;
-  arm64)
-    if [ "$OS" = macos ]; then ART_ARCH="aarch64"; else ART_ARCH="arm64"; fi;;
-  *) ART_ARCH="$ARCH";;
+  x86_64) BASE_ARCH="x86_64" ;;
+  # We no longer publish Linux aarch64 artifacts; map Linux arm64/aarch64 to x86_64 fallback error later.
+  aarch64) BASE_ARCH="aarch64" ;;
+  arm64) BASE_ARCH=$([ "$OS" = macos ] && echo aarch64 || echo aarch64) ;;
+  *) BASE_ARCH="$ARCH" ;;
 esac
+
+# Build candidate suffixes in order of preference for this OS/arch
+build_suffix_candidates() {
+  local os="$1" arch="$2" prefer_musl="$3"
+  local -a c=()
+  if [ "$os" = linux ]; then
+    case "$arch" in
+      x86_64)
+        if [ "$prefer_musl" != 0 ]; then c+=("x86_64-musl" "x86_64"); else c+=("x86_64" "x86_64-musl"); fi ;;
+      aarch64)
+        # Linux aarch64 builds are not published; no candidates
+        ;;
+      *)
+        c+=("$arch") ;;
+    esac
+  elif [ "$os" = macos ]; then
+    case "$arch" in
+  aarch64|arm64) c+=("arm64" "aarch64") ;;
+      x86_64) c+=("x86_64" "aarch64") ;; # allow Rosetta fallback
+      *) c+=("$arch") ;;
+    esac
+  else
+    c+=("$arch")
+  fi
+  printf '%s\n' "${c[@]}"
+}
 
 do_install() {
   do_resolve_tag
-  ASSET_TAR="${BIN_NAME}-${TAG}-${ART_OS}-${ART_ARCH}.tar.gz"
-  ASSET_SHA="${ASSET_TAR}.sha256"
-
   REL_JSON=$(gh_api "https://api.github.com/repos/$REPO/releases/tags/$TAG")
-  URL_TAR=$(printf "%s" "$REL_JSON" | sed -n "s@^[[:space:]]*\"browser_download_url\":[[:space:]]*\"\(.*${ASSET_TAR}\)\".*@\1@p")
-  URL_SHA=$(printf "%s" "$REL_JSON" | sed -n "s@^[[:space:]]*\"browser_download_url\":[[:space:]]*\"\(.*${ASSET_SHA}\)\".*@\1@p")
+
+  # Try candidates until we find a matching asset
+  URL_TAR=""; URL_SHA=""; ASSET_TAR=""; ASSET_SHA=""
+  while IFS= read -r suf; do
+    local try_tar="${BIN_NAME}-${TAG}-${ART_OS}-${suf}.tar.gz"
+    local try_sha="${try_tar}.sha256"
+    local u_tar=$(printf "%s" "$REL_JSON" | sed -n "s@^[[:space:]]*\"browser_download_url\":[[:space:]]*\"\(.*${try_tar}\)\".*@\1@p")
+    if [ -n "$u_tar" ]; then
+      URL_TAR="$u_tar"; ASSET_TAR="$try_tar"; ASSET_SHA="$try_sha"
+      URL_SHA=$(printf "%s" "$REL_JSON" | sed -n "s@^[[:space:]]*\"browser_download_url\":[[:space:]]*\"\(.*${try_sha}\)\".*@\1@p")
+      break
+    fi
+  done < <(build_suffix_candidates "$OS" "$BASE_ARCH" "$PREFER_MUSL")
 
   if [ -z "$URL_TAR" ]; then
-    echo "Could not find asset: $ASSET_TAR" >&2
-    echo "Release may not have an artifact for ${OS}/${ARCH}" >&2
+    if [ "$OS" = linux ] && [ "$BASE_ARCH" = aarch64 ]; then
+      echo "No Linux aarch64 prebuilt binaries are available at this time." >&2
+      echo "Please build from source or install on x86_64." >&2
+    else
+      echo "Could not find a suitable asset for OS=$OS arch=$ARCH (candidates tried: $(build_suffix_candidates "$OS" "$BASE_ARCH" "$PREFER_MUSL" | tr '\n' ' '))" >&2
+      echo "Available assets:" >&2
+      printf "%s\n" "$REL_JSON" | sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\.tar\.gz\)".*/\1/p' >&2 || true
+    fi
     exit 1
   fi
 
