@@ -248,21 +248,6 @@ jobs:
             for f in *.{tar.gz,zip}; do [ -f "$f" ] && shasum -a 256 "$f" >> RELEASES.txt; done
           fi
 
-      - name: Sign RELEASES.txt (optional)
-        if: ${{ secrets.GPG_PRIVATE_KEY }}
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          set -euo pipefail
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
-          cd release
-          if [ -n "${GPG_PASSPHRASE:-}" ]; then
-            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" -a -b -o RELEASES.txt.asc RELEASES.txt
-          else
-            gpg --batch --yes -a -b -o RELEASES.txt.asc RELEASES.txt
-          fi
-
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
