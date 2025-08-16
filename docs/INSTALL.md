@@ -76,8 +76,7 @@ Typical release assets include:
 
 - Linux x86_64 (glibc)
 - Linux x86_64 (musl/static)
-- macOS aarch64 (Apple Silicon)
-- macOS x86_64 (availability depends on CI runner)
+- macOS arm64 (Apple Silicon)
 - Windows x86_64
 
 Asset naming convention:
@@ -86,7 +85,7 @@ Asset naming convention:
 
   - `bgit-v0.3.1-ubuntu-latest-x86_64.tar.gz`
   - `bgit-v0.3.1-ubuntu-latest-x86_64-musl.tar.gz`
-  - `bgit-v0.3.1-macos-latest-aarch64.tar.gz`
+  - `bgit-v0.3.1-macos-latest-arm64.tar.gz`
   - `bgit-v0.3.1-windows-latest-AMD64.zip`
 
 Note: Linux aarch64 prebuilt binaries are not currently published. For ARM64 Linux, please build from source using Rust and Cargo.

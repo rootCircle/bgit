@@ -23,8 +23,8 @@ detect_arch() {
   arch=$(uname -m)
   case "$arch" in
     x86_64|amd64) echo x86_64;;
-  arm64) echo arm64;;
-  aarch64) echo aarch64;;
+    arm64) echo arm64;;
+    aarch64) echo aarch64;;
     *) echo "$arch";;
   esac
 }
@@ -114,9 +114,8 @@ esac
 PREFER_MUSL=${PREFER_MUSL:-${MUSL:-0}}
 case "$ARCH" in
   x86_64) BASE_ARCH="x86_64" ;;
-  # We no longer publish Linux aarch64 artifacts; map Linux arm64/aarch64 to x86_64 fallback error later.
   aarch64) BASE_ARCH="aarch64" ;;
-  arm64) BASE_ARCH=$([ "$OS" = macos ] && echo aarch64 || echo aarch64) ;;
+  arm64) BASE_ARCH=$([ "$OS" = macos ] && echo arm64 || echo aarch64) ;;
   *) BASE_ARCH="$ARCH" ;;
 esac
 
