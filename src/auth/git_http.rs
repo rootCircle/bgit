@@ -2,10 +2,26 @@ use dialoguer::{Input, Password, theme::ColorfulTheme};
 use git2::{Cred, Error, ErrorClass, ErrorCode};
 use log::debug;
 
-pub fn try_userpass_authentication(username_from_url: Option<&str>) -> Result<Cred, Error> {
-    debug!("USER_PASS_PLAINTEXT authentication is allowed, prompting for credentials");
+use crate::config::global::BGitGlobalConfig;
 
-    // Prompt for username if not provided in URL
+pub fn try_userpass_authentication(
+    username_from_url: Option<&str>,
+    cfg: &BGitGlobalConfig,
+) -> Result<Cred, Error> {
+    debug!("USER_PASS_PLAINTEXT authentication allowed; trying global config first");
+    // Try global config first; fall back to prompt if it fails
+    if let Some((u, t)) = cfg.get_https_credentials() {
+        match Cred::userpass_plaintext(u, t) {
+            Ok(cred) => {
+                debug!("Using HTTPS credentials from global config");
+                return Ok(cred);
+            }
+            Err(e) => {
+                debug!("Global HTTPS credentials failed: {e}; falling back to prompt");
+            }
+        }
+    }
+
     let username = if let Some(user) = username_from_url {
         user.to_string()
     } else {

@@ -10,18 +10,18 @@ use git2::Repository;
 pub struct GitPull<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub rebase: bool,
-    pub _global_config: &'a BGitGlobalConfig,
+    pub global_config: &'a BGitGlobalConfig,
 }
 
 impl<'a> AtomicEvent<'a> for GitPull<'a> {
-    fn new(_global_config: &'a BGitGlobalConfig) -> Self
+    fn new(global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
         GitPull {
             pre_check_rules: vec![],
             rebase: true,
-            _global_config,
+            global_config,
         }
     }
 
@@ -73,7 +73,7 @@ impl<'a> AtomicEvent<'a> for GitPull<'a> {
         };
 
         // Set up fetch options with authentication
-        let mut fetch_options = Self::create_fetch_options();
+        let mut fetch_options = self.create_fetch_options();
 
         // Fetch all references to ensure we have the latest remote state
         remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {
@@ -305,10 +305,10 @@ impl<'a> GitPull<'a> {
     }
 
     /// Create fetch options with authentication
-    fn create_fetch_options() -> git2::FetchOptions<'static> {
+    fn create_fetch_options(&'a self) -> git2::FetchOptions<'a> {
         let mut fetch_options = git2::FetchOptions::new();
         // Use centralized auth callbacks which ensure ssh-agent readiness and auto-add keys
-        fetch_options.remote_callbacks(setup_auth_callbacks());
+        fetch_options.remote_callbacks(setup_auth_callbacks(self.global_config));
         fetch_options
     }
 
@@ -326,7 +326,7 @@ impl<'a> GitPull<'a> {
         };
 
         // Set up fetch options with authentication
-        let mut fetch_options = Self::create_fetch_options();
+        let mut fetch_options = self.create_fetch_options();
 
         // Fetch all references to update remote tracking branches
         remote.fetch(&[&"refs/heads/*:refs/remotes/origin/*".to_string()], Some(&mut fetch_options), None).map_err(|e| {

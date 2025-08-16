@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use crate::auth::ssh_utils::add_key_interactive;
+use crate::config::global::BGitGlobalConfig;
 use crate::constants::MAX_AUTH_ATTEMPTS;
 
 #[cfg(unix)]
@@ -16,6 +17,7 @@ pub fn ssh_authenticate_git(
     username_from_url: Option<&str>,
     allowed_types: CredentialType,
     attempt_count: usize,
+    _cfg: &BGitGlobalConfig,
 ) -> Result<Cred, Error> {
     debug!("Git authentication attempt #{attempt_count} for URL: {url}");
     debug!("Username from URL: {username_from_url:?}");

@@ -9,18 +9,18 @@ use std::path::Path;
 pub struct GitClone<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub url: String,
-    pub _global_config: &'a BGitGlobalConfig,
+    pub global_config: &'a BGitGlobalConfig,
 }
 
 impl<'a> AtomicEvent<'a> for GitClone<'a> {
-    fn new(_global_config: &'a BGitGlobalConfig) -> Self
+    fn new(global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
         GitClone {
             pre_check_rules: vec![],
             url: String::new(),
-            _global_config,
+            global_config,
         }
     }
 
@@ -54,7 +54,7 @@ impl<'a> AtomicEvent<'a> for GitClone<'a> {
         };
 
         // Create fetch options with authentication
-        let fetch_options = Self::create_fetch_options();
+        let fetch_options = self.create_fetch_options();
 
         // Clone repository with authentication options
         let mut builder = git2::build::RepoBuilder::new();
@@ -91,9 +91,9 @@ impl<'a> GitClone<'a> {
     }
 
     /// Create fetch options with authentication
-    fn create_fetch_options() -> git2::FetchOptions<'static> {
+    fn create_fetch_options(&'a self) -> git2::FetchOptions<'a> {
         let mut fetch_options = git2::FetchOptions::new();
-        fetch_options.remote_callbacks(setup_auth_callbacks());
+        fetch_options.remote_callbacks(setup_auth_callbacks(self.global_config));
         fetch_options
     }
 }

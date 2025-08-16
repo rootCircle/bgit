@@ -11,11 +11,11 @@ pub struct GitPush<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub force_with_lease: bool,
     pub set_upstream: bool,
-    pub _global_config: &'a BGitGlobalConfig,
+    pub global_config: &'a BGitGlobalConfig,
 }
 
 impl<'a> AtomicEvent<'a> for GitPush<'a> {
-    fn new(_global_config: &'a BGitGlobalConfig) -> Self
+    fn new(global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -23,7 +23,7 @@ impl<'a> AtomicEvent<'a> for GitPush<'a> {
             pre_check_rules: vec![],
             force_with_lease: false,
             set_upstream: false,
-            _global_config,
+            global_config,
         }
     }
 
@@ -75,7 +75,7 @@ impl<'a> AtomicEvent<'a> for GitPush<'a> {
         })?;
 
         // Prepare push options with authentication and callbacks
-        let mut push_options = Self::create_push_options();
+        let mut push_options = self.create_push_options();
 
         if self.force_with_lease {
             // Best-effort native force-with-lease emulation with libgit2:
@@ -87,7 +87,7 @@ impl<'a> AtomicEvent<'a> for GitPush<'a> {
 
             // 2) Fetch latest state for the branch to update tracking ref
             let mut fetch_opts = git2::FetchOptions::new();
-            fetch_opts.remote_callbacks(setup_auth_callbacks());
+            fetch_opts.remote_callbacks(setup_auth_callbacks(self.global_config));
             let fetch_refspec = format!(
                 "refs/heads/{0}:refs/remotes/{1}/{0}",
                 branch_name, remote_name
@@ -266,9 +266,9 @@ impl<'a> GitPush<'a> {
     }
 
     /// Create push options with authentication
-    fn create_push_options() -> git2::PushOptions<'static> {
+    fn create_push_options(&'a self) -> git2::PushOptions<'a> {
         let mut push_options = git2::PushOptions::new();
-        let mut callbacks = setup_auth_callbacks();
+        let mut callbacks = setup_auth_callbacks(self.global_config);
         // Surface ref update errors clearly during push
         callbacks.push_update_reference(|refname, status| match status {
             Some(msg) => {

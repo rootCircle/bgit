@@ -2,9 +2,12 @@ use git2::{CertificateCheckStatus, CredentialType, RemoteCallbacks};
 use log::debug;
 use std::sync::{Arc, Mutex};
 
-use crate::auth::{git_http::try_userpass_authentication, git_ssh::ssh_authenticate_git};
+use crate::{
+    auth::{git_http::try_userpass_authentication, git_ssh::ssh_authenticate_git},
+    config::global::BGitGlobalConfig,
+};
 
-pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
+pub fn setup_auth_callbacks<'a>(global_config: &'a BGitGlobalConfig) -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
 
     // Track attempt count across callback invocations
@@ -17,9 +20,15 @@ pub fn setup_auth_callbacks() -> RemoteCallbacks<'static> {
         drop(count);
 
         if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-            try_userpass_authentication(username_from_url)
+            try_userpass_authentication(username_from_url, global_config)
         } else {
-            ssh_authenticate_git(url, username_from_url, allowed_types, current_attempt)
+            ssh_authenticate_git(
+                url,
+                username_from_url,
+                allowed_types,
+                current_attempt,
+                global_config,
+            )
         }
     });
 
