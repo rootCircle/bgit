@@ -7,4 +7,3 @@ pub(crate) mod ta08_is_pulled_pushed;
 pub(crate) mod ta10_is_branch_main;
 pub(crate) mod ta11_is_sole_contributor;
 pub(crate) mod ta12_move_changes;
-pub(crate) mod ta13_ai_commit_msg;

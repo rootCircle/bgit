@@ -1,13 +1,11 @@
 use super::pa12_ask_commit_msg::AskHumanCommitMessage;
 use crate::config::global::BGitGlobalConfig;
 use crate::config::local::{StepFlags, WorkflowRules};
-use crate::step::ActionStep;
-use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE},
     step::{PromptStep, Step},
-    workflows::default::action::ta13_ai_commit_msg::AICommit,
+    workflows::default::prompt::pa14_ai_commit_msg::AICommit,
 };
 use dialoguer::{Select, theme::ColorfulTheme};
 
@@ -55,7 +53,7 @@ impl PromptStep for AskAICommitMessage {
             })?;
 
         match selection {
-            0 => Ok(Step::Task(ActionStepTask(Box::new(AICommit::new())))),
+            0 => Ok(Step::Task(PromptStepTask(Box::new(AICommit::new())))),
             1 => Ok(Step::Task(PromptStepTask(Box::new(
                 AskHumanCommitMessage::new(),
             )))),

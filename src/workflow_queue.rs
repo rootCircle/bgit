@@ -81,11 +81,14 @@ impl WorkflowQueue {
                 let prompt_step_config_flags = workflow_config_flags
                     .and_then(|flags| flags.get_step_flags(prompt_step_task.get_name()));
 
-                let prompt_step_result = prompt_step_task.execute(
-                    prompt_step_config_flags,
-                    workflow_rules_config,
-                    global_config,
-                )?;
+                // Suspend drawing so dialoguer prompts on stderr are clean
+                let prompt_step_result: Step = self.pb.suspend(|| {
+                    prompt_step_task.execute(
+                        prompt_step_config_flags,
+                        workflow_rules_config,
+                        global_config,
+                    )
+                })?;
                 self.pb.enable_steady_tick(Duration::from_millis(200));
 
                 self.pb.inc(1);

@@ -12,7 +12,7 @@ use crate::step::Task::ActionStepTask;
 use crate::workflows::default::action::ta08_is_pulled_pushed::IsPushedPulled;
 use crate::{
     bgit_error::BGitError,
-    step::{ActionStep, Step},
+    step::{ActionStep, PromptStep, Step},
 };
 use dialoguer::{Confirm, Password, theme::ColorfulTheme};
 use git2::{DiffOptions, Repository};
@@ -27,7 +27,7 @@ pub(crate) struct AICommit {
     api_key: Option<String>,
 }
 
-impl ActionStep for AICommit {
+impl PromptStep for AICommit {
     fn new() -> Self
     where
         Self: Sized,

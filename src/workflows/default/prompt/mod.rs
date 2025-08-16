@@ -12,3 +12,4 @@ pub(crate) mod pa10_ask_same_feat;
 pub(crate) mod pa11_ask_ai_commit_msg;
 pub(crate) mod pa12_ask_commit_msg;
 pub(crate) mod pa13_pull_push;
+pub(crate) mod pa14_ai_commit_msg;
