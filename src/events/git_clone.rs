@@ -1,8 +1,10 @@
 use super::AtomicEvent;
+use crate::auth::auth_utils::transform_url_for_preference;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
 use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
+use log::info;
 use std::env;
 use std::path::Path;
 
@@ -45,7 +47,18 @@ impl<'a> AtomicEvent<'a> for GitClone<'a> {
         if self.url.is_empty() {
             return Err(self.to_bgit_error("Repository URL is not set"));
         }
-        let url = &self.url;
+        let url = if let Some(new_url) =
+            transform_url_for_preference(&self.url, self.global_config.auth.preferred)
+        {
+            let preferred = self.global_config.auth.preferred;
+            info!(
+                "Using preferred auth ({:?}) URL: {} -> {}",
+                preferred, &self.url, &new_url
+            );
+            new_url
+        } else {
+            self.url.clone()
+        };
         let repo_name = match url.split("/").last() {
             Some(repo_name) => repo_name.strip_suffix(".git").unwrap_or(repo_name),
             None => {
@@ -60,7 +73,7 @@ impl<'a> AtomicEvent<'a> for GitClone<'a> {
         let mut builder = git2::build::RepoBuilder::new();
         builder.fetch_options(fetch_options);
 
-        builder.clone(&self.url, Path::new(repo_name)).map_err(|e| {
+        builder.clone(&url, Path::new(repo_name)).map_err(|e| {
             self.to_bgit_error(&format!("Failed to clone repository: {e}. Please check your SSH keys or authentication setup."))
         })?;
 

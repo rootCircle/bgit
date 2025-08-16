@@ -1,10 +1,12 @@
 use super::AtomicEvent;
+use crate::auth::auth_utils::transform_url_for_preference;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
 use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
 use git2::{Oid, Repository};
-use log::{debug, info};
+use log::debug;
+use log::info;
 use std::path::Path;
 
 pub struct GitPush<'a> {
@@ -73,6 +75,22 @@ impl<'a> AtomicEvent<'a> for GitPush<'a> {
         let mut remote = repo.find_remote(&remote_name).map_err(|e| {
             self.to_bgit_error(&format!("Failed to find remote '{remote_name}': {e}"))
         })?;
+
+        if let Some(url) = remote.url()
+            && let Some(new_url) =
+                transform_url_for_preference(url, self.global_config.auth.preferred)
+        {
+            let preferred = self.global_config.auth.preferred;
+            log::info!(
+                "Using preferred auth ({:?}) URL: {} -> {}",
+                preferred,
+                url,
+                new_url
+            );
+            if let Ok(temp) = repo.remote_anonymous(new_url.as_str()) {
+                remote = temp;
+            }
+        }
 
         // Prepare push options with authentication and callbacks
         let mut push_options = self.create_push_options();

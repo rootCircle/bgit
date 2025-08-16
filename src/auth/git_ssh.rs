@@ -4,8 +4,9 @@ use log::debug;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+use crate::auth::auth_utils::prompt_persist_preferred_auth;
 use crate::auth::ssh_utils::add_key_interactive;
-use crate::config::global::BGitGlobalConfig;
+use crate::config::global::{BGitGlobalConfig, PreferredAuth};
 use crate::constants::MAX_AUTH_ATTEMPTS;
 
 #[cfg(unix)]
@@ -53,6 +54,8 @@ pub fn ssh_authenticate_git(
             }
 
             if let Ok(cred) = try_ssh_agent_auth(username) {
+                // Offer to set preferred auth to SSH
+                prompt_persist_preferred_auth(cfg, PreferredAuth::Ssh);
                 if let Some(added) = added_key_path.as_deref() {
                     // Persist only if it differs from currently configured key
                     if cfg.get_ssh_key_file().as_deref() != Some(added) {

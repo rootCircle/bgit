@@ -1,11 +1,13 @@
 use std::path::Path;
 
 use super::AtomicEvent;
+use crate::auth::auth_utils::transform_url_for_preference;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
 use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
 use git2::Repository;
+use log::info;
 
 pub struct GitPull<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
@@ -71,6 +73,20 @@ impl<'a> AtomicEvent<'a> for GitPull<'a> {
                 return Err(self.to_bgit_error(&format!("Failed to find remote 'origin': {e}")));
             }
         };
+
+        if let Some(url) = remote.url()
+            && let Some(new_url) =
+                transform_url_for_preference(url, self.global_config.auth.preferred)
+        {
+            let preferred = self.global_config.auth.preferred;
+            info!(
+                "Using preferred auth ({:?}) URL: {} -> {}",
+                preferred, url, new_url
+            );
+            if let Ok(temp) = repo.remote_anonymous(new_url.as_str()) {
+                remote = temp;
+            }
+        }
 
         // Set up fetch options with authentication
         let mut fetch_options = self.create_fetch_options();
