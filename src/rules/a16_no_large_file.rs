@@ -1,5 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
-use crate::config::WorkflowRules;
+use crate::config::local::WorkflowRules;
 use crate::constants::{
     DEFAULT_MAX_CUMMULATIVE_STAGED_FILE_SIZE_IN_BYTES, DEFAULT_MAX_LARGE_FILE_SIZE_IN_BYTES,
 };

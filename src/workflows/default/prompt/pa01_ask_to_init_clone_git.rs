@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::{
     bgit_error::BGitError,
     step::{
@@ -33,6 +34,7 @@ impl PromptStep for AskToInitCloneGit {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        _global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let options = vec![
             "Initialize a new Git repository",

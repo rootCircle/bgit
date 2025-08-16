@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::git_log::GitLog;
 use crate::events::{AtomicEvent, git_config};
 use crate::flags::config_flag;
@@ -32,6 +33,7 @@ impl ActionStep for IsSoleContributor {
         &self,
         step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let override_check_for_authors_list = step_config_flags
             .and_then(|flags| flags.get_flag::<Vec<String>>(config_flag::workflows::default::is_sole_contributor::OVERRIDE_CHECK_FOR_AUTHORS))
@@ -44,7 +46,7 @@ impl ActionStep for IsSoleContributor {
             });
         let skip_author_ownership_check =
             if let Some(author_emails) = override_check_for_authors_list {
-                let git_config_event = git_config::GitConfig::new()
+                let git_config_event = git_config::GitConfig::new(global_config)
                     .with_operation(git_config::ConfigOperation::Get)
                     .with_key("user.email".to_owned());
 
@@ -56,7 +58,7 @@ impl ActionStep for IsSoleContributor {
                 false
             };
 
-        let git_log = GitLog::check_sole_contributor();
+        let git_log = GitLog::check_sole_contributor(global_config);
         let is_sole_contributor = skip_author_ownership_check || git_log.execute()?;
         match is_sole_contributor {
             true => Ok(Step::Task(PromptStepTask(Box::new(AskCommit::new())))),

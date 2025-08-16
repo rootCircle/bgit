@@ -1,5 +1,5 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Repository, StashApplyOptions};
 use std::path::Path;
 
@@ -8,26 +8,28 @@ pub(crate) enum StashOperation {
     Pop,
 }
 
-pub(crate) struct GitStash {
+pub(crate) struct GitStash<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     operation: Option<StashOperation>,
     stash_index: Option<usize>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl GitStash {
-    pub fn pop_stash(index: Option<usize>) -> Self {
+impl<'a> GitStash<'a> {
+    pub fn pop_stash(_global_config: &'a BGitGlobalConfig, index: Option<usize>) -> Self {
         GitStash {
             name: "git_stash".to_owned(),
             pre_check_rules: vec![],
             operation: Some(StashOperation::Pop),
             stash_index: index,
+            _global_config,
         }
     }
 }
 
-impl AtomicEvent for GitStash {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitStash<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -36,6 +38,7 @@ impl AtomicEvent for GitStash {
             pre_check_rules: vec![],
             operation: None,
             stash_index: None,
+            _global_config,
         }
     }
 
@@ -69,7 +72,7 @@ impl AtomicEvent for GitStash {
     }
 }
 
-impl GitStash {
+impl<'a> GitStash<'a> {
     fn pop_stash_impl(&self, repo: &mut Repository) -> Result<bool, Box<BGitError>> {
         let index = self.stash_index.unwrap_or(0);
 

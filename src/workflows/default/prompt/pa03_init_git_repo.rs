@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::rules::Rule;
 use crate::{
     bgit_error::BGitError,
@@ -33,8 +34,9 @@ impl PromptStep for InitGitRepo {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        let mut git_init = GitInit::new().with_path(&self.path);
+        let mut git_init = GitInit::new(global_config).with_path(&self.path);
         git_init.add_pre_check_rule(Box::new(IsGitInstalledLocally::new(workflow_rules_config)));
         git_init.execute()?;
         Ok(Step::Stop)

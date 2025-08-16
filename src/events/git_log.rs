@@ -1,5 +1,5 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::Repository;
 use std::collections::HashSet;
 use std::path::Path;
@@ -9,24 +9,26 @@ pub(crate) enum LogOperation {
     CheckSoleContributor,
 }
 
-pub(crate) struct GitLog {
+pub(crate) struct GitLog<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     operation: Option<LogOperation>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl GitLog {
-    pub fn check_sole_contributor() -> Self {
+impl<'a> GitLog<'a> {
+    pub fn check_sole_contributor(_global_config: &'a BGitGlobalConfig) -> Self {
         GitLog {
             name: "git_log".to_owned(),
             pre_check_rules: vec![],
             operation: Some(LogOperation::CheckSoleContributor),
+            _global_config,
         }
     }
 }
 
-impl AtomicEvent for GitLog {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitLog<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -34,6 +36,7 @@ impl AtomicEvent for GitLog {
             name: "git_log".to_owned(),
             pre_check_rules: vec![],
             operation: None,
+            _global_config,
         }
     }
 
@@ -69,7 +72,7 @@ impl AtomicEvent for GitLog {
     }
 }
 
-impl GitLog {
+impl<'a> GitLog<'a> {
     fn check_sole_contributor_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
         // Get current user's configuration
         let config = repo

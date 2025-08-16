@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::AtomicEvent;
 use crate::events::git_branch::GitBranch;
 use crate::step::PromptStep;
@@ -34,6 +35,7 @@ impl ActionStep for MoveChanges {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         // Check if target branch name is provided
         let target_branch = match &self.target_branch_name {
@@ -51,7 +53,7 @@ impl ActionStep for MoveChanges {
         };
 
         // Create GitBranch instance with MoveChanges operation
-        let mut git_branch = GitBranch::move_changes_to_branch(target_branch);
+        let mut git_branch = GitBranch::move_changes_to_branch(global_config, target_branch);
 
         // Set custom stash message if provided
         if let Some(ref message) = self.stash_message {

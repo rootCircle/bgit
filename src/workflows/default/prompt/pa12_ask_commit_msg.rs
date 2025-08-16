@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::AtomicEvent;
 use crate::events::git_commit::GitCommit;
 use crate::rules::Rule;
@@ -37,6 +38,7 @@ impl PromptStep for AskHumanCommitMessage {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let commit_message: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Enter your commit message")
@@ -64,7 +66,8 @@ impl PromptStep for AskHumanCommitMessage {
             )));
         }
 
-        let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
+        let mut git_commit =
+            GitCommit::new(global_config).with_commit_message(commit_message.clone());
         git_commit.add_pre_check_rule(Box::new(
             ConventionalCommitMessage::new(workflow_rules_config).with_message(commit_message),
         ));

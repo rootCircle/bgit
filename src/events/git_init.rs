@@ -1,15 +1,16 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Repository, RepositoryInitOptions};
 use std::{env, path::Path};
 
-pub struct GitInit {
+pub struct GitInit<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     path: String, // Add path field
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl GitInit {
+impl<'a> GitInit<'a> {
     // Add a method to set custom path
     pub fn with_path(mut self, path: &str) -> Self {
         self.path = path.to_owned();
@@ -24,8 +25,8 @@ impl GitInit {
     }
 }
 
-impl AtomicEvent for GitInit {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitInit<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -33,6 +34,7 @@ impl AtomicEvent for GitInit {
             name: "git_init".to_owned(),
             pre_check_rules: vec![],
             path: ".".to_owned(), // Default to current directory
+            _global_config,
         }
     }
 

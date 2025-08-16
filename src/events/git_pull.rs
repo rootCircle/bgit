@@ -3,22 +3,25 @@ use std::path::Path;
 use super::AtomicEvent;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
+use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
 use git2::Repository;
 
-pub struct GitPull {
+pub struct GitPull<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub rebase: bool,
+    pub _global_config: &'a BGitGlobalConfig,
 }
 
-impl AtomicEvent for GitPull {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitPull<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
         GitPull {
             pre_check_rules: vec![],
             rebase: true,
+            _global_config,
         }
     }
 
@@ -129,7 +132,7 @@ impl AtomicEvent for GitPull {
     }
 }
 
-impl GitPull {
+impl<'a> GitPull<'a> {
     pub fn with_rebase(mut self, rebase: bool) -> Self {
         self.rebase = rebase;
         self

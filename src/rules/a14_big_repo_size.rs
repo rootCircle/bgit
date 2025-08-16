@@ -1,5 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP};
-use crate::config::WorkflowRules;
+use crate::config::local::WorkflowRules;
 use crate::constants::DEFAULT_MAX_REPO_SIZE_IN_MIB;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::Repository;

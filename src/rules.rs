@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP},
-    config::WorkflowRules,
+    config::local::WorkflowRules,
 };
 
 pub(crate) mod a01_git_install;

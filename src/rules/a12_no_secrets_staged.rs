@@ -1,5 +1,5 @@
 use crate::bgit_error::BGitError;
-use crate::config::WorkflowRules;
+use crate::config::local::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use regex::Regex;
 use std::collections::HashSet;

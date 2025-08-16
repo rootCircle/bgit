@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::step::PromptStep;
 use crate::step::Task::PromptStepTask;
 use crate::workflows::default::prompt::pa05_ask_to_add::AskToAdd;
@@ -31,8 +32,9 @@ impl ActionStep for PopStash {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        let git_stash = GitStash::pop_stash(self.stash_index);
+        let git_stash = GitStash::pop_stash(global_config, self.stash_index);
 
         git_stash.execute()?;
         println!("Stash popped successfully.");

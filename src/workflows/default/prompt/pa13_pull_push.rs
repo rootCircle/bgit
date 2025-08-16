@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::AtomicEvent;
 use crate::events::git_pull::GitPull;
 use crate::events::git_push::GitPush;
@@ -31,13 +32,14 @@ impl PromptStep for PullAndPush {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        let mut git_pull = GitPull::new().with_rebase(true);
+        let mut git_pull = GitPull::new(global_config).with_rebase(true);
         git_pull.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
 
         match git_pull.execute() {
             Ok(_) => {
-                let mut git_push = GitPush::new();
+                let mut git_push = GitPush::new(global_config);
 
                 git_push.add_pre_check_rule(Box::new(RemoteExists::new(workflow_rules_config)));
                 git_push.add_pre_check_rule(Box::new(IsRepoSizeTooBig::new(workflow_rules_config)));

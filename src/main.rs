@@ -3,7 +3,8 @@ use crate::cmd::default::default_cmd_workflow;
 use crate::cmd::init::init;
 use crate::cmd::log::log;
 use crate::cmd::{Cli, Commands};
-use crate::config::BGitConfig;
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::BGitConfig;
 
 mod auth;
 mod bgit_error;
@@ -40,11 +41,16 @@ fn main() {
             std::process::exit(1);
         });
 
+        let global_config = BGitGlobalConfig::load_global().unwrap_or_else(|err| {
+            err.print_error();
+            std::process::exit(1);
+        });
+
         match cli_instance.command {
-            Some(Commands::Log) => log(bgit_config),
-            Some(Commands::Init) => init(bgit_config),
-            Some(Commands::Check) => check(bgit_config),
-            None => default_cmd_workflow(bgit_config),
+            Some(Commands::Log) => log(&bgit_config, &global_config),
+            Some(Commands::Init) => init(&bgit_config, &global_config),
+            Some(Commands::Check) => check(&bgit_config, &global_config),
+            None => default_cmd_workflow(&bgit_config, &global_config),
         }
     }
 }

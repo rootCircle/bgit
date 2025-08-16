@@ -1,5 +1,5 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Config, Repository};
 use std::path::Path;
 
@@ -16,15 +16,16 @@ pub(crate) enum ConfigScope {
     System,
 }
 
-pub(crate) struct GitConfig {
+pub(crate) struct GitConfig<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     operation: Option<ConfigOperation>,
     scope: ConfigScope,
     key: Option<String>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl GitConfig {
+impl<'a> GitConfig<'a> {
     pub fn with_key(mut self, key: String) -> Self {
         self.key = Some(key);
         self
@@ -50,8 +51,8 @@ impl GitConfig {
     }
 }
 
-impl AtomicEvent for GitConfig {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitConfig<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -61,6 +62,7 @@ impl AtomicEvent for GitConfig {
             operation: None,
             scope: ConfigScope::Local,
             key: None,
+            _global_config,
         }
     }
 
@@ -91,7 +93,7 @@ impl AtomicEvent for GitConfig {
     }
 }
 
-impl GitConfig {
+impl<'a> GitConfig<'a> {
     fn get_config_object(&self) -> Result<Config, Box<BGitError>> {
         match self.scope {
             ConfigScope::Local => {

@@ -1,6 +1,7 @@
 use super::ta08_is_pulled_pushed::IsPushedPulled;
 use super::ta10_is_branch_main::IsBranchMain;
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::{AtomicEvent, git_status};
 use crate::step::Task::ActionStepTask;
 use crate::{
@@ -30,8 +31,9 @@ impl ActionStep for HasUncommitted {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        let has_staged = git_status::GitStatus::new().has_staged_files()?;
+        let has_staged = git_status::GitStatus::new(global_config).has_staged_files()?;
 
         if has_staged {
             Ok(Step::Task(ActionStepTask(Box::new(IsBranchMain::new()))))

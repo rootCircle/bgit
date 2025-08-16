@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::git_commit::GitCommit;
 use crate::llm_tools::conventional_commit_tool::ValidateConventionalCommit;
 use crate::rules::Rule;
@@ -44,6 +45,7 @@ impl ActionStep for AICommit {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         // Get API key from environment or provided value
         let api_key = match &self.api_key {
@@ -82,7 +84,8 @@ impl ActionStep for AICommit {
         debug!("Generated commit message: {commit_message}");
 
         // Execute GitCommit with the generated message
-        let mut git_commit = GitCommit::new().with_commit_message(commit_message.clone());
+        let mut git_commit =
+            GitCommit::new(global_config).with_commit_message(commit_message.clone());
         git_commit.add_pre_check_rule(Box::new(
             ConventionalCommitMessage::new(workflow_rules_config)
                 .with_message(commit_message.clone()),

@@ -1,12 +1,13 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{IndexAddOption, Repository};
 use std::path::Path;
 
-pub(crate) struct GitAdd {
+pub(crate) struct GitAdd<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     add_mode: Option<AddMode>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -15,8 +16,8 @@ pub enum AddMode {
     Selective(Vec<String>),
 }
 
-impl AtomicEvent for GitAdd {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitAdd<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -24,6 +25,7 @@ impl AtomicEvent for GitAdd {
             name: "git_add".to_owned(),
             pre_check_rules: vec![],
             add_mode: None,
+            _global_config,
         }
     }
 
@@ -64,7 +66,7 @@ impl AtomicEvent for GitAdd {
     }
 }
 
-impl GitAdd {
+impl<'a> GitAdd<'a> {
     pub fn with_add_mode(mut self, mode: AddMode) -> Self {
         self.add_mode = Some(mode);
         self

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::{
     bgit_error::{BGitError, BGitErrorWorkflowType, NO_RULE, NO_STEP},
+    config::global::BGitGlobalConfig,
     hook_executor::execute_hook_util,
     rules::Rule,
     util::find_hook_with_extension,
@@ -39,8 +40,8 @@ pub(crate) enum HookType {
 ///     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>
 /// }
 /// List of various Git Events to be called with git2-rs library
-pub(crate) trait AtomicEvent {
-    fn new() -> Self
+pub(crate) trait AtomicEvent<'a> {
+    fn new(global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized;
     fn get_name(&self) -> &str;

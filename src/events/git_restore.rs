@@ -1,12 +1,13 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Repository, ResetType, build::CheckoutBuilder};
 use std::path::Path;
 
-pub(crate) struct GitRestore {
+pub(crate) struct GitRestore<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     mode: Option<RestoreMode>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -15,8 +16,8 @@ pub enum RestoreMode {
     UnstageAll,
 }
 
-impl AtomicEvent for GitRestore {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitRestore<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -24,6 +25,7 @@ impl AtomicEvent for GitRestore {
             name: "git_restore".to_owned(),
             pre_check_rules: vec![],
             mode: None,
+            _global_config,
         }
     }
 
@@ -56,7 +58,7 @@ impl AtomicEvent for GitRestore {
     }
 }
 
-impl GitRestore {
+impl<'a> GitRestore<'a> {
     /// Prompt user to choose between different restore modes
     /// Create a new GitRestore with a specific mode (bypasses user prompt)
     pub fn with_mode(mut self, mode: RestoreMode) -> Self {

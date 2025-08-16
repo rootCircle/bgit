@@ -41,7 +41,7 @@ Commands:
   install     Install bgit (default)
   update      Update bgit to latest or specified --tag
   uninstall   Remove the bgit binary from common install locations
-  purge       Complete uninstall: uninstall + remove ~/.bgit and ~/.ssh/bgit_ssh_agent.sock
+  purge       Complete uninstall: uninstall + remove ~/.ssh/bgit_ssh_agent.sock, and global config at ~/.config/bgit (or $XDG_CONFIG_HOME/bgit)
 EOF
 }
 
@@ -261,10 +261,17 @@ do_uninstall() {
 do_purge() {
   do_uninstall || true
   # Remove data dirs
-  BGIT_DIR="$HOME/.bgit"
   AGENT_SOCK="$HOME/.ssh/bgit_ssh_agent.sock"
-  [ -d "$BGIT_DIR" ] && rm -rf "$BGIT_DIR" && echo "Removed $BGIT_DIR" || true
+  # Global config dirs
+  GLOBAL_CFG_DEFAULT="$HOME/.config/bgit"
+  GLOBAL_CFG_XDG="${XDG_CONFIG_HOME:-}/bgit"
   [ -S "$AGENT_SOCK" ] || [ -f "$AGENT_SOCK" ] && rm -f "$AGENT_SOCK" && echo "Removed $AGENT_SOCK" || true
+  if [ -n "${XDG_CONFIG_HOME:-}" ] && [ -d "$GLOBAL_CFG_XDG" ]; then
+    rm -rf "$GLOBAL_CFG_XDG" && echo "Removed $GLOBAL_CFG_XDG" || true
+  fi
+  if [ -d "$GLOBAL_CFG_DEFAULT" ]; then
+    rm -rf "$GLOBAL_CFG_DEFAULT" && echo "Removed $GLOBAL_CFG_DEFAULT" || true
+  fi
 }
 
 case "$CMD" in

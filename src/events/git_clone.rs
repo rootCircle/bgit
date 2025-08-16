@@ -1,23 +1,26 @@
 use super::AtomicEvent;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
+use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
 use std::env;
 use std::path::Path;
 
-pub struct GitClone {
+pub struct GitClone<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub url: String,
+    pub _global_config: &'a BGitGlobalConfig,
 }
 
-impl AtomicEvent for GitClone {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitClone<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
         GitClone {
             pre_check_rules: vec![],
             url: String::new(),
+            _global_config,
         }
     }
 
@@ -67,7 +70,7 @@ impl AtomicEvent for GitClone {
     }
 }
 
-impl GitClone {
+impl<'a> GitClone<'a> {
     pub fn set_url(&mut self, url: &str) -> &mut Self {
         self.url = url.to_owned();
         self

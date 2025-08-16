@@ -1,6 +1,9 @@
 use crate::{
     bgit_error::BGitError,
-    config::{StepFlags, WorkflowRules},
+    config::{
+        global::BGitGlobalConfig,
+        local::{StepFlags, WorkflowRules},
+    },
     step::{
         ActionStep, PromptStep, Step,
         Task::{ActionStepTask, PromptStepTask},
@@ -33,6 +36,7 @@ impl ActionStep for IsGitRepo {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        _global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let cwd = env::current_dir().expect("Failed to get current directory");
         if Repository::discover(cwd).is_ok() {

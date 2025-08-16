@@ -158,6 +158,7 @@ name = "bgit"
 version = "0.3.3"
 dependencies = [
  "assert_cmd",
+ "base64",
  "clap",
  "clap_complete",
  "colored",

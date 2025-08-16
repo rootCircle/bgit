@@ -1,6 +1,9 @@
 use crate::{
     bgit_error::BGitError,
-    config::{StepFlags, WorkflowRules},
+    config::{
+        global::BGitGlobalConfig,
+        local::{StepFlags, WorkflowRules},
+    },
 };
 
 #[derive(PartialEq)]
@@ -36,6 +39,7 @@ pub(crate) trait ActionStep {
         &self,
         step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>>;
 }
 
@@ -48,5 +52,6 @@ pub(crate) trait PromptStep {
         &self,
         step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>>;
 }

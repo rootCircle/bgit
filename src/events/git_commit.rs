@@ -1,16 +1,17 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Commit, Repository};
 use std::path::Path;
 
-pub(crate) struct GitCommit {
+pub(crate) struct GitCommit<'a> {
     name: String,
     commit_message: Option<String>,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl AtomicEvent for GitCommit {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitCommit<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -18,6 +19,7 @@ impl AtomicEvent for GitCommit {
             name: "git_commit".to_owned(),
             commit_message: None,
             pre_check_rules: vec![],
+            _global_config,
         }
     }
 
@@ -56,7 +58,7 @@ impl AtomicEvent for GitCommit {
     }
 }
 
-impl GitCommit {
+impl<'a> GitCommit<'a> {
     pub fn with_commit_message(mut self, commit_message: String) -> Self {
         self.commit_message = Some(commit_message);
         self

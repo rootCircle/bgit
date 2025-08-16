@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::git_add::{AddMode, GitAdd};
 use crate::events::{AtomicEvent, git_status};
 use crate::rules::Rule;
@@ -36,6 +37,7 @@ impl PromptStep for AskAddMode {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let options = vec!["Add all unstaged files", "Select specific files to add"];
         let selection = Select::with_theme(&ColorfulTheme::default())
@@ -58,7 +60,7 @@ impl PromptStep for AskAddMode {
             0 => AddMode::All,
             1 => {
                 // Handle selective mode with file selection prompt
-                let selected_files = self.prompt_file_selection()?;
+                let selected_files = self.prompt_file_selection(global_config)?;
                 if selected_files.is_empty() {
                     println!("No files selected.");
                     return Ok(Step::Stop);
@@ -69,7 +71,7 @@ impl PromptStep for AskAddMode {
         };
 
         // Create GitAdd instance with the selected mode and execute
-        let mut git_add = GitAdd::new().with_add_mode(add_mode);
+        let mut git_add = GitAdd::new(global_config).with_add_mode(add_mode);
 
         git_add.add_pre_check_rule(Box::new(NoSecretsStaged::new(workflow_rules_config)));
         git_add.add_pre_check_rule(Box::new(NoSecretFilesStaged::new(workflow_rules_config)));
@@ -82,8 +84,11 @@ impl PromptStep for AskAddMode {
 }
 
 impl AskAddMode {
-    fn prompt_file_selection(&self) -> Result<Vec<String>, Box<BGitError>> {
-        let unstaged_files = git_status::GitStatus::new().get_unstaged_files_list()?;
+    fn prompt_file_selection(
+        &self,
+        global_config: &BGitGlobalConfig,
+    ) -> Result<Vec<String>, Box<BGitError>> {
+        let unstaged_files = git_status::GitStatus::new(global_config).get_unstaged_files_list()?;
 
         if unstaged_files.is_empty() {
             println!("No unstaged files found.");

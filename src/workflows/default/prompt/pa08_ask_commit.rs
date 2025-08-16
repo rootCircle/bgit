@@ -1,5 +1,6 @@
 use super::pa11_ask_ai_commit_msg::AskAICommitMessage;
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::step::ActionStep;
 use crate::step::Task::ActionStepTask;
 use crate::step::Task::PromptStepTask;
@@ -31,6 +32,7 @@ impl PromptStep for AskCommit {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        _global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to commit changes?")

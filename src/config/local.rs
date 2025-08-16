@@ -1,6 +1,7 @@
 use crate::bgit_error::BGitError;
 use crate::rules::RuleLevel;
 use git2::Repository;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -54,9 +55,14 @@ impl BGitConfig {
     /// Load config from .bgit/config.toml at repository root
     pub fn load() -> Result<Self, Box<BGitError>> {
         let config_path = Self::find_config_path()?;
+        debug!("Project config - resolved path: {}", config_path.display());
 
         if !config_path.exists() {
             // Return default config if file doesn't exist
+            debug!(
+                "Project config file not found at {}, using defaults",
+                config_path.display()
+            );
             return Ok(Self::default());
         }
 
@@ -81,6 +87,12 @@ impl BGitConfig {
                 crate::bgit_error::NO_RULE,
             ))
         })?;
+
+        debug!(
+            "Project config loaded: workflows={} (rules) / {} (workflow steps)",
+            config.rules.workflows.len(),
+            config.workflow.workflows.len()
+        );
 
         Ok(config)
     }
@@ -111,11 +123,22 @@ impl BGitConfig {
                         crate::bgit_error::NO_RULE,
                     ))
                 })?;
-                Ok(repo_root.join(".bgit").join("config.toml"))
+                let p = repo_root.join(".bgit").join("config.toml");
+                debug!(
+                    "Detected Git repository at {}, using project config {}",
+                    repo_root.display(),
+                    p.display()
+                );
+                Ok(p)
             }
             Err(_) => {
                 // If not in a git repo, use current directory
-                Ok(cwd.join(".bgit").join("config.toml"))
+                let p = cwd.join(".bgit").join("config.toml");
+                debug!(
+                    "Not in a Git repository, using project config {}",
+                    p.display()
+                );
+                Ok(p)
             }
         }
     }

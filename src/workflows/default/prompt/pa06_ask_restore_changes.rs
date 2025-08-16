@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use crate::events::AtomicEvent;
 use crate::workflows::default::action::ta07_has_uncommitted::HasUncommitted;
 use crate::{
@@ -29,6 +30,7 @@ impl PromptStep for AskToRestore {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         let selections = MultiSelect::with_theme(&ColorfulTheme::default())
             .with_prompt("Select restore options (Space to select, Enter to confirm, or press Enter with nothing selected to cancel)")            
@@ -55,11 +57,13 @@ impl PromptStep for AskToRestore {
         for &selection in &selections {
             match selection {
                 0 => {
-                    let git_restore = GitRestore::new().with_mode(RestoreMode::RestoreAllUnstaged);
+                    let git_restore =
+                        GitRestore::new(global_config).with_mode(RestoreMode::RestoreAllUnstaged);
                     git_restore.execute()?;
                 }
                 1 => {
-                    let git_restore = GitRestore::new().with_mode(RestoreMode::UnstageAll);
+                    let git_restore =
+                        GitRestore::new(global_config).with_mode(RestoreMode::UnstageAll);
                     git_restore.execute()?;
                 }
                 _ => {

@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 
 use super::ta07_has_uncommitted::HasUncommitted;
 use crate::events::AtomicEvent;
@@ -31,8 +32,9 @@ impl ActionStep for HasUnstaged {
         &self,
         _step_config_flags: Option<&StepFlags>,
         _workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        let git_status = GitStatus::new();
+        let git_status = GitStatus::new(global_config);
         match git_status.execute() {
             Ok(true) => Ok(Step::Task(PromptStepTask(Box::new(AskToAdd::new())))),
             Ok(false) => Ok(Step::Task(ActionStepTask(Box::new(HasUncommitted::new())))),

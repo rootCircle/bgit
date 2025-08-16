@@ -1,12 +1,13 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{Repository, Status, StatusOptions};
 use std::path::Path;
 
-pub(crate) struct GitStatus {
+pub(crate) struct GitStatus<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     mode: StatusMode,
+    _global_config: &'a BGitGlobalConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -20,8 +21,8 @@ pub enum StatusMode {
     CheckOnly,
 }
 
-impl AtomicEvent for GitStatus {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitStatus<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -29,6 +30,7 @@ impl AtomicEvent for GitStatus {
             name: "git_status".to_owned(),
             pre_check_rules: vec![],
             mode: StatusMode::CheckOnly,
+            _global_config,
         }
     }
 
@@ -63,7 +65,7 @@ impl AtomicEvent for GitStatus {
     }
 }
 
-impl GitStatus {
+impl<'a> GitStatus<'a> {
     /// Detects unstaged files (modified tracked files) or new files (untracked)
     pub fn has_unstaged_or_new_files(&self) -> Result<bool, Box<BGitError>> {
         let repo = Repository::discover(Path::new("."))

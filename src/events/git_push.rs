@@ -1,19 +1,21 @@
 use super::AtomicEvent;
 use crate::auth::git_auth::setup_auth_callbacks;
 use crate::bgit_error::BGitError;
+use crate::config::global::BGitGlobalConfig;
 use crate::rules::Rule;
 use git2::{Oid, Repository};
 use log::{debug, info};
 use std::path::Path;
 
-pub struct GitPush {
+pub struct GitPush<'a> {
     pub pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     pub force_with_lease: bool,
     pub set_upstream: bool,
+    pub _global_config: &'a BGitGlobalConfig,
 }
 
-impl AtomicEvent for GitPush {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitPush<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -21,6 +23,7 @@ impl AtomicEvent for GitPush {
             pre_check_rules: vec![],
             force_with_lease: false,
             set_upstream: false,
+            _global_config,
         }
     }
 
@@ -144,7 +147,7 @@ impl AtomicEvent for GitPush {
     }
 }
 
-impl GitPush {
+impl<'a> GitPush<'a> {
     pub fn with_force_with_lease(&mut self, force_with_lease: bool) -> &mut Self {
         self.force_with_lease = force_with_lease;
         self
@@ -302,6 +305,7 @@ impl GitPush {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::global::BGitGlobalConfig;
     use git2::Signature;
     use std::fs;
     use tempfile::TempDir;
@@ -363,7 +367,8 @@ mod tests {
             )
             .unwrap();
 
-        let gp = GitPush::new();
+        let global = BGitGlobalConfig::default();
+        let gp = GitPush::new(&global);
         let chosen = gp.determine_remote_name(&repo, &branch).unwrap();
         assert_eq!(chosen, "foo");
     }
@@ -388,7 +393,8 @@ mod tests {
         let (_td, repo, branch) = init_repo_with_commit();
         repo.remote("foo", "https://example.com/foo.git").unwrap();
 
-        let gp = GitPush::new();
+        let global = BGitGlobalConfig::default();
+        let gp = GitPush::new(&global);
         // Initially no upstream
         assert!(!gp.has_upstream(&repo, &branch).unwrap());
 

@@ -111,10 +111,11 @@ function Uninstall-Bgit {
 
 function Purge-Bgit {
   Uninstall-Bgit
-  $bgitDir = Join-Path $env:USERPROFILE '.bgit'
-  if (Test-Path $bgitDir) { Remove-Item -Recurse -Force $bgitDir; Write-Host "Removed $bgitDir" }
   $agentSock = Join-Path $env:USERPROFILE '.ssh\bgit_ssh_agent.sock'
   if (Test-Path $agentSock) { Remove-Item -Force $agentSock; Write-Host "Removed $agentSock" }
+  # Global per-user config in %APPDATA%\bgit
+  $globalCfg = Join-Path $env:APPDATA 'bgit'
+  if (Test-Path $globalCfg) { Remove-Item -Recurse -Force $globalCfg; Write-Host "Removed $globalCfg" }
 }
 
 switch ($Cmd) {

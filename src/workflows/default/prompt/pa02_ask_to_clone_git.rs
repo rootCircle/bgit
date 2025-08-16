@@ -1,4 +1,5 @@
-use crate::config::{StepFlags, WorkflowRules};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{StepFlags, WorkflowRules};
 use dialoguer::{Confirm, Input};
 
 use crate::rules::Rule;
@@ -31,6 +32,7 @@ impl PromptStep for CloneGitRepo {
         &self,
         _step_config_flags: Option<&StepFlags>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
         // Take link input in cli
         let clone_link: String = Input::new()
@@ -62,7 +64,7 @@ impl PromptStep for CloneGitRepo {
         }
 
         // // Get a mutable reference to the GitClone event
-        let mut git_clone = GitClone::new();
+        let mut git_clone = GitClone::new(global_config);
         git_clone.add_pre_check_rule(Box::new(IsGitInstalledLocally::new(workflow_rules_config)));
         // Set the URL
         git_clone.set_url(&clone_link);

@@ -1,5 +1,6 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_RULE, NO_STEP};
-use crate::config::{WorkflowRules, WorkflowSteps};
+use crate::config::global::BGitGlobalConfig;
+use crate::config::local::{WorkflowRules, WorkflowSteps};
 use crate::step::Task::{ActionStepTask, PromptStepTask};
 use crate::step::{Step, Task};
 use colored::Colorize;
@@ -35,6 +36,7 @@ impl WorkflowQueue {
         &self,
         workflow_config_flags: Option<&WorkflowSteps>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
         task: &Task,
     ) -> Result<Step, Box<BGitError>> {
         match task {
@@ -52,8 +54,11 @@ impl WorkflowQueue {
                 let action_step_config_flags = workflow_config_flags
                     .and_then(|flags| flags.get_step_flags(action_step_task.get_name()));
 
-                let action_step_result =
-                    action_step_task.execute(action_step_config_flags, workflow_rules_config)?;
+                let action_step_result = action_step_task.execute(
+                    action_step_config_flags,
+                    workflow_rules_config,
+                    global_config,
+                )?;
 
                 self.pb.inc(1);
                 self.pb.tick();
@@ -76,8 +81,11 @@ impl WorkflowQueue {
                 let prompt_step_config_flags = workflow_config_flags
                     .and_then(|flags| flags.get_step_flags(prompt_step_task.get_name()));
 
-                let prompt_step_result =
-                    prompt_step_task.execute(prompt_step_config_flags, workflow_rules_config)?;
+                let prompt_step_result = prompt_step_task.execute(
+                    prompt_step_config_flags,
+                    workflow_rules_config,
+                    global_config,
+                )?;
                 self.pb.enable_steady_tick(Duration::from_millis(200));
 
                 self.pb.inc(1);
@@ -92,6 +100,7 @@ impl WorkflowQueue {
         &self,
         workflow_config_flags: Option<&WorkflowSteps>,
         workflow_rules_config: Option<&WorkflowRules>,
+        global_config: &BGitGlobalConfig,
     ) -> Result<bool, Box<BGitError>> {
         match &self.init_step {
             Step::Start(task) => {
@@ -99,8 +108,12 @@ impl WorkflowQueue {
 
                 Self::warn_unsupported_client_hooks_if_any();
 
-                let mut next_step: Step =
-                    self.run_step_and_traverse(workflow_config_flags, workflow_rules_config, task)?;
+                let mut next_step: Step = self.run_step_and_traverse(
+                    workflow_config_flags,
+                    workflow_rules_config,
+                    global_config,
+                    task,
+                )?;
 
                 while next_step != Step::Stop {
                     if let Step::Start(_) = next_step {
@@ -119,6 +132,7 @@ impl WorkflowQueue {
                             next_step = self.run_step_and_traverse(
                                 workflow_config_flags,
                                 workflow_rules_config,
+                                global_config,
                                 &task,
                             )?;
                         }

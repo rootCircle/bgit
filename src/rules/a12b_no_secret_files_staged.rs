@@ -1,5 +1,5 @@
 use crate::bgit_error::{BGitError, BGitErrorWorkflowType, NO_EVENT, NO_STEP};
-use crate::config::WorkflowRules;
+use crate::config::local::WorkflowRules;
 use crate::rules::{Rule, RuleLevel, RuleOutput};
 use git2::{Repository, Status, StatusOptions};
 use log::{info, warn};

@@ -1,5 +1,5 @@
 use super::AtomicEvent;
-use crate::{bgit_error::BGitError, rules::Rule};
+use crate::{bgit_error::BGitError, config::global::BGitGlobalConfig, rules::Rule};
 use git2::{BranchType, Repository, StashApplyOptions, StashFlags, build::CheckoutBuilder};
 use std::path::Path;
 
@@ -9,33 +9,39 @@ pub(crate) enum BranchOperation {
     MoveChanges,
 }
 
-pub(crate) struct GitBranch {
+pub(crate) struct GitBranch<'a> {
     name: String,
     pre_check_rules: Vec<Box<dyn Rule + Send + Sync>>,
     operation: Option<BranchOperation>,
     target_branch_name: Option<String>,
     stash_message: Option<String>,
+    _global_config: &'a BGitGlobalConfig,
 }
 
-impl GitBranch {
-    pub fn check_current_branch() -> Self {
+impl<'a> GitBranch<'a> {
+    pub fn check_current_branch(_global_config: &'a BGitGlobalConfig) -> Self {
         GitBranch {
             name: "git_branch".to_owned(),
             pre_check_rules: vec![],
             operation: Some(BranchOperation::CheckCurrentBranch),
             target_branch_name: None,
             stash_message: None,
+            _global_config,
         }
     }
 
     // New constructor for move changes operation
-    pub fn move_changes_to_branch(target_branch_name: String) -> Self {
+    pub fn move_changes_to_branch(
+        _global_config: &'a BGitGlobalConfig,
+        target_branch_name: String,
+    ) -> Self {
         GitBranch {
             name: "git_branch".to_owned(),
             pre_check_rules: vec![],
             operation: Some(BranchOperation::MoveChanges),
             target_branch_name: Some(target_branch_name),
             stash_message: Some("Moving changes to new branch".to_string()),
+            _global_config,
         }
     }
 
@@ -44,8 +50,8 @@ impl GitBranch {
     }
 }
 
-impl AtomicEvent for GitBranch {
-    fn new() -> Self
+impl<'a> AtomicEvent<'a> for GitBranch<'a> {
+    fn new(_global_config: &'a BGitGlobalConfig) -> Self
     where
         Self: Sized,
     {
@@ -55,6 +61,7 @@ impl AtomicEvent for GitBranch {
             operation: None,
             target_branch_name: None,
             stash_message: None,
+            _global_config,
         }
     }
 
@@ -93,7 +100,7 @@ impl AtomicEvent for GitBranch {
     }
 }
 
-impl GitBranch {
+impl<'a> GitBranch<'a> {
     fn check_current_branch_impl(&self, repo: &Repository) -> Result<bool, Box<BGitError>> {
         // Get current branch
         let head_result = repo.head();
