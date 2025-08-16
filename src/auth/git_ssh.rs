@@ -1,3 +1,4 @@
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use git2::{Cred, CredentialType, Error, ErrorClass, ErrorCode};
 use log::debug;
 use std::path::PathBuf;
@@ -17,7 +18,7 @@ pub fn ssh_authenticate_git(
     username_from_url: Option<&str>,
     allowed_types: CredentialType,
     attempt_count: usize,
-    _cfg: &BGitGlobalConfig,
+    cfg: &BGitGlobalConfig,
 ) -> Result<Cred, Error> {
     debug!("Git authentication attempt #{attempt_count} for URL: {url}");
     debug!("Username from URL: {username_from_url:?}");
@@ -42,13 +43,22 @@ pub fn ssh_authenticate_git(
             // Before auth attempt 1, ensure an agent is available and has at least 1 identity.
             ensure_agent_ready()?;
 
-            // If the agent is up but has no identities, try to add keys once.
+            // If the agent is up but has no identities, try to add common keys once.
+            let mut added_key_path: Option<PathBuf> = None;
             if agent_identities_count().unwrap_or(0) == 0 && attempt_count <= MAX_AUTH_ATTEMPTS {
                 debug!("ssh-agent has no identities, attempting to add keys from ~/.ssh");
-                let _ = add_all_ssh_keys();
+                if let Ok(first_added) = add_all_ssh_keys(cfg) {
+                    added_key_path = first_added;
+                }
             }
 
             if let Ok(cred) = try_ssh_agent_auth(username) {
+                if let Some(added) = added_key_path.as_deref() {
+                    // Persist only if it differs from currently configured key
+                    if cfg.get_ssh_key_file().as_deref() != Some(added) {
+                        prompt_persist_key_file(cfg, added);
+                    }
+                }
                 return Ok(cred);
             }
         } else {
@@ -250,7 +260,7 @@ fn start_agent_detached() -> Result<(), Error> {
     Ok(())
 }
 
-fn add_all_ssh_keys() -> Result<(), Error> {
+fn add_all_ssh_keys(cfg: &BGitGlobalConfig) -> Result<Option<PathBuf>, Error> {
     debug!("Adding all SSH keys from .ssh folder to ssh-agent");
 
     let ssh_dir = home::home_dir()
@@ -259,14 +269,26 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 
     if !ssh_dir.exists() {
         debug!("SSH directory {ssh_dir:?} does not exist");
-        return Ok(());
+        return Ok(None);
     }
 
     let key_files = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
     let mut added_count = 0;
+    let mut first_added: Option<PathBuf> = None;
 
-    for key_name in &key_files {
-        let key_path = ssh_dir.join(key_name);
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(configured_key) = cfg.get_ssh_key_file() {
+        candidates.push(configured_key);
+    }
+    for name in &key_files {
+        candidates.push(ssh_dir.join(name));
+    }
+
+    for key_path in candidates {
+        let display_name = key_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("ssh_key");
 
         if key_path.exists() {
             debug!("Found SSH key: {key_path:?}");
@@ -295,30 +317,36 @@ fn add_all_ssh_keys() -> Result<(), Error> {
 
             match quick_result {
                 Ok(output) if output.status.success() => {
-                    debug!("Successfully added key without interaction: {key_name}");
+                    debug!("Successfully added key without interaction: {display_name}");
                     added_count += 1;
+                    if first_added.is_none() {
+                        first_added = Some(key_path.clone());
+                    }
                 }
                 Ok(output) => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    debug!("Quick add failed for {key_name}: {stderr}");
+                    debug!("Quick add failed for {display_name}: {stderr}");
 
-                    debug!("Key {key_name} appears to need passphrase, trying interactive add");
+                    debug!("Key {display_name} appears to need passphrase, trying interactive add");
 
-                    match add_key_interactive(&key_path, key_name) {
+                    match add_key_interactive(&key_path, display_name) {
                         Ok(true) => {
-                            debug!("Successfully added key interactively: {key_name}");
+                            debug!("Successfully added key interactively: {display_name}");
                             added_count += 1;
+                            if first_added.is_none() {
+                                first_added = Some(key_path.clone());
+                            }
                         }
                         Ok(false) => {
-                            debug!("User skipped key: {key_name}");
+                            debug!("User skipped key: {display_name}");
                         }
                         Err(e) => {
-                            debug!("Interactive add failed for {key_name}: {e}");
+                            debug!("Interactive add failed for {display_name}: {e}");
                         }
                     }
                 }
                 Err(e) => {
-                    debug!("Error running ssh-add for {key_name}: {e}");
+                    debug!("Error running ssh-add for {display_name}: {e}");
                 }
             }
         } else {
@@ -336,7 +364,7 @@ fn add_all_ssh_keys() -> Result<(), Error> {
         println!("Successfully added {added_count} SSH key(s) to ssh-agent.");
     }
 
-    Ok(())
+    Ok(first_added)
 }
 
 fn try_ssh_key_files_directly(username: &str) -> Result<Cred, Error> {
@@ -465,4 +493,35 @@ fn start_agent_and_parse_env() -> Result<(String, String), Error> {
             )
         })?;
     Ok((sock.to_string(), pid.to_string()))
+}
+
+fn prompt_persist_key_file(cfg: &BGitGlobalConfig, path: &std::path::Path) {
+    // Only set if not already configured
+    if cfg.auth.ssh.key_file.as_deref() == Some(path) {
+        return;
+    }
+
+    let path_str = path.to_string_lossy();
+    let question = format!(
+        "Use '{}' as your default SSH key and save it to global config?",
+        path_str
+    );
+    let confirm = Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(question)
+        .default(true)
+        .interact()
+        .unwrap_or(false);
+    if !confirm {
+        debug!("User declined persisting ssh key_file");
+        return;
+    }
+
+    let mut cfg_owned = cfg.clone();
+    cfg_owned.auth.ssh.key_file = Some(path.to_path_buf());
+    if let Err(e) = cfg_owned.save_global() {
+        debug!("Failed to persist ssh key_file: {:?}", e);
+    } else {
+        println!("Saved default SSH key to global config: {}", path_str);
+        debug!("Persisted ssh key_file to {:?}", path);
+    }
 }

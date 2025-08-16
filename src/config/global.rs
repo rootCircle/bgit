@@ -56,7 +56,12 @@ impl Default for GlobalAuth {
 pub struct GlobalIntegrations {
     /// Optional Google API key stored as base64 in config and decoded on load.
     /// TOML path: [integrations] google_api_key = "...base64..."
-    #[serde(default, deserialize_with = "deserialize_b64_opt")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_b64_opt",
+        serialize_with = "serialize_b64_opt",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub google_api_key: Option<String>,
 }
 
@@ -65,7 +70,12 @@ pub struct HttpsAuth {
     /// Username for HTTPS auth
     pub username: Option<String>,
     /// Personal Access Token (base64-encoded in config, decoded on load)
-    #[serde(default, deserialize_with = "deserialize_b64_opt")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_b64_opt",
+        serialize_with = "serialize_b64_opt",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub pat: Option<String>,
 }
 
@@ -97,6 +107,20 @@ where
         }
     } else {
         Ok(None)
+    }
+}
+
+// Custom serializer to encode optional strings as base64 when saving
+fn serialize_b64_opt<S>(val: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match val {
+        Some(s) if !s.is_empty() => {
+            let enc = base64::engine::general_purpose::STANDARD.encode(s.as_bytes());
+            serializer.serialize_str(&enc)
+        }
+        _ => serializer.serialize_none(),
     }
 }
 
@@ -180,6 +204,46 @@ impl BGitGlobalConfig {
             p.display()
         );
         p
+    }
+
+    /// Save global configuration to the platform's config file path.
+    /// Secrets are serialized as base64 to match loader expectations.
+    pub fn save_global(&self) -> Result<(), Box<BGitError>> {
+        let path = BGitGlobalConfig::find_global_config_path();
+        if let Some(parent) = path.parent()
+            && let Err(e) = fs::create_dir_all(parent)
+        {
+            return Err(Box::new(BGitError::new(
+                "Failed to create global config directory",
+                &format!("Could not create {}: {}", parent.display(), e),
+                crate::bgit_error::BGitErrorWorkflowType::Config,
+                crate::bgit_error::NO_STEP,
+                crate::bgit_error::NO_EVENT,
+                crate::bgit_error::NO_RULE,
+            )));
+        }
+
+        let toml_content = toml::to_string_pretty(self).map_err(|e| {
+            Box::new(BGitError::new(
+                "Failed to serialize global config",
+                &format!("TOML serialization error: {}", e),
+                crate::bgit_error::BGitErrorWorkflowType::Config,
+                crate::bgit_error::NO_STEP,
+                crate::bgit_error::NO_EVENT,
+                crate::bgit_error::NO_RULE,
+            ))
+        })?;
+
+        fs::write(&path, toml_content).map_err(|e| {
+            Box::new(BGitError::new(
+                "Failed to write global config file",
+                &format!("Could not write {}: {}", path.display(), e),
+                crate::bgit_error::BGitErrorWorkflowType::Config,
+                crate::bgit_error::NO_STEP,
+                crate::bgit_error::NO_EVENT,
+                crate::bgit_error::NO_RULE,
+            ))
+        })
     }
     /// Helper to fetch Google API key from new location.
     pub fn get_google_api_key(&self) -> Option<&str> {
