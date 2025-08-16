@@ -14,6 +14,7 @@ use crate::{
     bgit_error::BGitError,
     step::{ActionStep, Step},
 };
+use dialoguer::{Confirm, Password, theme::ColorfulTheme};
 use git2::{DiffOptions, Repository};
 use log::debug;
 use rig::{completion::Prompt, providers::gemini};
@@ -47,20 +48,59 @@ impl ActionStep for AICommit {
         workflow_rules_config: Option<&WorkflowRules>,
         global_config: &BGitGlobalConfig,
     ) -> Result<Step, Box<BGitError>> {
-        // Get API key from environment or provided value
-        let api_key = match &self.api_key {
-            Some(key) => key.clone(),
-            None => std::env::var("GOOGLE_API_KEY").map_err(|_| {
-                Box::new(BGitError::new(
-                    "BGitError",
-                    "GOOGLE_API_KEY environment variable not set and no API key provided",
-                    crate::bgit_error::BGitErrorWorkflowType::ActionStep,
-                    crate::bgit_error::NO_EVENT,
-                    &self.name,
-                    crate::bgit_error::NO_RULE,
-                ))
-            })?,
+        // Get API key from: explicit self.api_key > global config > env > prompt
+        let api_key = if let Some(key) = &self.api_key {
+            key.clone()
+        } else if let Some(k) = global_config.get_google_api_key() {
+            k.to_string()
+        } else if let Ok(k) = std::env::var("GOOGLE_API_KEY") {
+            k
+        } else {
+            // Prompt user for Google API key (hidden input)
+            Password::with_theme(&ColorfulTheme::default())
+                .with_prompt("Enter your Google API Key")
+                .interact()
+                .map_err(|e| {
+                    Box::new(BGitError::new(
+                        "BGitError",
+                        &format!("Failed to read Google API Key: {e}"),
+                        crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+                        &self.name,
+                        crate::bgit_error::NO_EVENT,
+                        crate::bgit_error::NO_RULE,
+                    ))
+                })?
         };
+
+        if api_key.trim().is_empty() {
+            return Err(Box::new(BGitError::new(
+                "BGitError",
+                "GOOGLE_API_KEY environment variable not set and no API key provided",
+                crate::bgit_error::BGitErrorWorkflowType::ActionStep,
+                &self.name,
+                crate::bgit_error::NO_EVENT,
+                crate::bgit_error::NO_RULE,
+            )));
+        }
+
+        // Offer to save key to global config if not already present or different
+        let existing = global_config.get_google_api_key();
+        if existing.map(|e| e != api_key).unwrap_or(true) {
+            let confirm = Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Save Google API Key to global config? (stored base64-encoded)")
+                .default(true)
+                .interact()
+                .unwrap_or(false);
+            if confirm {
+                let mut cfg_owned = global_config.clone();
+                cfg_owned.integrations.google_api_key = Some(api_key.clone());
+                if let Err(e) = cfg_owned.save_global() {
+                    debug!("Failed to persist Google API key: {:?}", e);
+                } else {
+                    debug!("Persisted Google API key to global config");
+                }
+            }
+        }
 
         // Get git diff
         let diff_content = self.get_git_diff()?;

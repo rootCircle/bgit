@@ -86,8 +86,8 @@ test :
 precommit : fmt clippy test
 
 precommit-fix:
-	cargo fmt --all
 	cargo clippy --all-features --all-targets --fix --allow-dirty
+	cargo fmt --all
 
 coverage:
 	cargo llvm-cov clean --workspace --html --output-dir=coverage
