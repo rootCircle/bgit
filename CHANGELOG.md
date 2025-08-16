@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.5 (2025-08-16)
+
+### Bug Fixes
+
+ - <csr-id-fdb1ee6b22dda536ba08580f05cbb9425152c24a/> Suspend progress bar for clean stderr output
+   - Wrapped prompt_step_task.execute in self.pb.suspend to prevent
+     dialoguer prompts from interfering with the progress bar.
+   - Created `pa14_ai_commit_msg` for PromptStep alignment.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Suspend progress bar for clean stderr output ([`fdb1ee6`](https://github.com/rootCircle/bgit/commit/fdb1ee6b22dda536ba08580f05cbb9425152c24a))
+</details>
+
 ## v0.3.4 (2025-08-16)
+
+<csr-id-125c1b6c6e20d242e71bea99f5f022395fda16e6/>
+<csr-id-1af265e0a24b3242fa95a086599f887ce0ccfda9/>
 
 ### Chore
 
@@ -13,13 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-4c315bbc5935957675a49c9d8ed34d6042c1263a/>
+
  - <csr-id-23853d66277d43dd6a7037a16e8bfaf76bfded6c/> auth.preffered integration and auth.ssh save
  - <csr-id-5e3f9716bb5948243b70a05f50ccd7784a2130a4/> prompt to persist SSH key and update config
    - Add interactive prompt to persist SSH key to global config.
-   - Update `add_all_ssh_keys` to return the first key added.
-   - Add `serialize_b64_opt` and `save_global` to `GlobalConfig` for proper serialization and saving of config.
-   - Modify `GlobalIntegrations` and `HttpsAuth` to use `serialize_b64_opt` and `skip_serializing_if`.
- - <csr-id-4c315bbc5935957675a49c9d8ed34d6042c1263a/> auth.https integration
+- Update `add_all_ssh_keys` to return the first key added.
+- Add `serialize_b64_opt` and `save_global` to `GlobalConfig` for proper serialization and saving of config.
+- Modify `GlobalIntegrations` and `HttpsAuth` to use `serialize_b64_opt` and `skip_serializing_if`.
 
 ### Bug Fixes
 
@@ -33,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release.
+ - 7 commits contributed to the release.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -44,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.3.4 ([`563fe6d`](https://github.com/rootCircle/bgit/commit/563fe6ddcbfd4542fc30f6bf3afa23369313cd2f))
     - Ensure formatting after clippy fix ([`21aedab`](https://github.com/rootCircle/bgit/commit/21aedabe72fb24cf16b4bfa498cc646de73f7a5a))
     - Auth.preffered integration and auth.ssh save ([`23853d6`](https://github.com/rootCircle/bgit/commit/23853d66277d43dd6a7037a16e8bfaf76bfded6c))
     - Prompt to persist SSH key and update config ([`5e3f971`](https://github.com/rootCircle/bgit/commit/5e3f9716bb5948243b70a05f50ccd7784a2130a4))
@@ -52,9 +84,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix install script for mac ([`125c1b6`](https://github.com/rootCircle/bgit/commit/125c1b6c6e20d242e71bea99f5f022395fda16e6))
 </details>
 
+<csr-unknown>
+ auth.https integration<csr-unknown/>
+
 ## v0.3.3 (2025-08-16)
 
 <csr-id-86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd/>
+<csr-id-9234c37f487cd47bf93e0d04d3535ff0a2ccf355/>
 
 ### Documentation
 
@@ -62,26 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-377aeb54882c7690badd28a42f3493b54e9c9eda/> Add HOOKS.md and improve hook execution
    - Document bgit's hook system, including portable (`.bgit/hooks`) and native Git hooks.
-- Clarify hook execution order and platform notes.
-- Implement support for standard Git `pre-commit` and `post-commit` hooks.
-- Add logic to resolve `core.hooksPath` from local, global, and `.git/hooks`.
-- Warn users about unsupported native Git hooks (e.g., `pre-push`, `commit-msg`).
-- Improve hook execution fallback for non-executable files on Unix-like systems.
-- Update USAGE.md with a minor correction to the code block for the repository URL.
-- Added `docs/INSTALL.md` with comprehensive installation details.
-- Introduced `scripts/install.sh` for Linux/macOS and `scripts/install.ps1` for Windows to automate installation.
-- Updated `README.md` to reference the new installation guide and include quick install commands.
-- Enhanced installation instructions to cover precompiled binaries, Cargo installation, advanced options, and troubleshooting.
 
 ### New Features
 
  - <csr-id-e39ff22ae46c44be621b1df0a594539c0dcd9f35/> Add cross compilation and artifact packaging for more targets
    - Install `cross` for Linux builds.
-- Add build steps for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, and `aarch64-unknown-linux-musl` targets on Linux.
-- Add build step for `aarch64-apple-darwin` target on macOS.
-- Add artifact packaging for the newly supported Linux and macOS targets.
-- Generate aggregate checksums in `RELEASES.txt` for all packaged artifacts.
-- Add optional GPG signing for `RELEASES.txt`.
 
 ### Refactor
 
@@ -124,7 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- Update installation instructions and add install scripts<csr-unknown/>
+Clarify hook execution order and platform notes.Implement support for standard Git pre-commit and post-commit hooks.Add logic to resolve core.hooksPath from local, global, and .git/hooks.Warn users about unsupported native Git hooks (e.g., pre-push, commit-msg).Improve hook execution fallback for non-executable files on Unix-like systems.Update USAGE.md with a minor correction to the code block for the repository URL.Added docs/INSTALL.md with comprehensive installation details.Introduced scripts/install.sh for Linux/macOS and scripts/install.ps1 for Windows to automate installation.Updated README.md to reference the new installation guide and include quick install commands.Enhanced installation instructions to cover precompiled binaries, Cargo installation, advanced options, and troubleshooting.Add build steps for x86_64-unknown-linux-musl, aarch64-unknown-linux-gnu, and aarch64-unknown-linux-musl targets on Linux.Add build step for aarch64-apple-darwin target on macOS.Add artifact packaging for the newly supported Linux and macOS targets.Generate aggregate checksums in RELEASES.txt for all packaged artifacts.Add optional GPG signing for RELEASES.txt.<csr-unknown/>
 
 ## v0.3.2 (2025-08-13)
 
