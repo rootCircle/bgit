@@ -5,45 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.3 (2025-08-16)
+## v0.3.4 (2025-08-16)
 
-### Documentation
+### Chore
 
- - <csr-id-377aeb54882c7690badd28a42f3493b54e9c9eda/> Add HOOKS.md and improve hook execution
-   - Document bgit's hook system, including portable (`.bgit/hooks`) and native Git hooks.
-   - Clarify hook execution order and platform notes.
-   - Implement support for standard Git `pre-commit` and `post-commit` hooks.
-   - Add logic to resolve `core.hooksPath` from local, global, and `.git/hooks`.
-   - Warn users about unsupported native Git hooks (e.g., `pre-push`, `commit-msg`).
-   - Improve hook execution fallback for non-executable files on Unix-like systems.
-   - Update USAGE.md with a minor correction to the code block for the repository URL.
- - <csr-id-178e216e48ecab71464b2750863a90a0ea1b6f4c/> Update installation instructions and add install scripts
-   - Added `docs/INSTALL.md` with comprehensive installation details.
-   - Introduced `scripts/install.sh` for Linux/macOS and `scripts/install.ps1` for Windows to automate installation.
-   - Updated `README.md` to reference the new installation guide and include quick install commands.
-   - Enhanced installation instructions to cover precompiled binaries, Cargo installation, advanced options, and troubleshooting.
+ - <csr-id-125c1b6c6e20d242e71bea99f5f022395fda16e6/> fix install script for mac
 
 ### New Features
 
- - <csr-id-e39ff22ae46c44be621b1df0a594539c0dcd9f35/> Add cross compilation and artifact packaging for more targets
-   - Install `cross` for Linux builds.
-   - Add build steps for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, and `aarch64-unknown-linux-musl` targets on Linux.
-   - Add build step for `aarch64-apple-darwin` target on macOS.
-   - Add artifact packaging for the newly supported Linux and macOS targets.
-   - Generate aggregate checksums in `RELEASES.txt` for all packaged artifacts.
-   - Add optional GPG signing for `RELEASES.txt`.
+ - <csr-id-23853d66277d43dd6a7037a16e8bfaf76bfded6c/> auth.preffered integration and auth.ssh save
+ - <csr-id-5e3f9716bb5948243b70a05f50ccd7784a2130a4/> prompt to persist SSH key and update config
+   - Add interactive prompt to persist SSH key to global config.
+   - Update `add_all_ssh_keys` to return the first key added.
+   - Add `serialize_b64_opt` and `save_global` to `GlobalConfig` for proper serialization and saving of config.
+   - Modify `GlobalIntegrations` and `HttpsAuth` to use `serialize_b64_opt` and `skip_serializing_if`.
+ - <csr-id-4c315bbc5935957675a49c9d8ed34d6042c1263a/> auth.https integration
+
+### Bug Fixes
+
+ - <csr-id-21aedabe72fb24cf16b4bfa498cc646de73f7a5a/> ensure formatting after clippy fix
 
 ### Refactor
 
- - <csr-id-86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd/> Improve error messages and tips for adding remotes
+ - <csr-id-1af265e0a24b3242fa95a086599f887ce0ccfda9/> introduce global configs
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 2 calendar days.
- - 2 days passed between releases.
- - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 6 commits contributed to the release.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -53,11 +44,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Ensure formatting after clippy fix ([`21aedab`](https://github.com/rootCircle/bgit/commit/21aedabe72fb24cf16b4bfa498cc646de73f7a5a))
+    - Auth.preffered integration and auth.ssh save ([`23853d6`](https://github.com/rootCircle/bgit/commit/23853d66277d43dd6a7037a16e8bfaf76bfded6c))
+    - Prompt to persist SSH key and update config ([`5e3f971`](https://github.com/rootCircle/bgit/commit/5e3f9716bb5948243b70a05f50ccd7784a2130a4))
+    - Auth.https integration ([`4c315bb`](https://github.com/rootCircle/bgit/commit/4c315bbc5935957675a49c9d8ed34d6042c1263a))
+    - Introduce global configs ([`1af265e`](https://github.com/rootCircle/bgit/commit/1af265e0a24b3242fa95a086599f887ce0ccfda9))
+    - Fix install script for mac ([`125c1b6`](https://github.com/rootCircle/bgit/commit/125c1b6c6e20d242e71bea99f5f022395fda16e6))
+</details>
+
+## v0.3.3 (2025-08-16)
+
+<csr-id-86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd/>
+
+### Documentation
+
+<csr-id-178e216e48ecab71464b2750863a90a0ea1b6f4c/>
+
+ - <csr-id-377aeb54882c7690badd28a42f3493b54e9c9eda/> Add HOOKS.md and improve hook execution
+   - Document bgit's hook system, including portable (`.bgit/hooks`) and native Git hooks.
+- Clarify hook execution order and platform notes.
+- Implement support for standard Git `pre-commit` and `post-commit` hooks.
+- Add logic to resolve `core.hooksPath` from local, global, and `.git/hooks`.
+- Warn users about unsupported native Git hooks (e.g., `pre-push`, `commit-msg`).
+- Improve hook execution fallback for non-executable files on Unix-like systems.
+- Update USAGE.md with a minor correction to the code block for the repository URL.
+- Added `docs/INSTALL.md` with comprehensive installation details.
+- Introduced `scripts/install.sh` for Linux/macOS and `scripts/install.ps1` for Windows to automate installation.
+- Updated `README.md` to reference the new installation guide and include quick install commands.
+- Enhanced installation instructions to cover precompiled binaries, Cargo installation, advanced options, and troubleshooting.
+
+### New Features
+
+ - <csr-id-e39ff22ae46c44be621b1df0a594539c0dcd9f35/> Add cross compilation and artifact packaging for more targets
+   - Install `cross` for Linux builds.
+- Add build steps for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, and `aarch64-unknown-linux-musl` targets on Linux.
+- Add build step for `aarch64-apple-darwin` target on macOS.
+- Add artifact packaging for the newly supported Linux and macOS targets.
+- Generate aggregate checksums in `RELEASES.txt` for all packaged artifacts.
+- Add optional GPG signing for `RELEASES.txt`.
+
+### Refactor
+
+ - <csr-id-86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd/> Improve error messages and tips for adding remotes
+
+### Bug Fixes
+
+ - <csr-id-74601c7cd5f56dd9c48d2415ad490349c157986f/> release builds
+ - <csr-id-28b5d0d9a3fd91f74146e8c8883c71bb75c3040f/> musl targets builds
+
+### Chore
+
+ - <csr-id-9234c37f487cd47bf93e0d04d3535ff0a2ccf355/> cleanup hooks
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 3 calendar days.
+ - 3 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release builds ([`74601c7`](https://github.com/rootCircle/bgit/commit/74601c7cd5f56dd9c48d2415ad490349c157986f))
+    - Musl targets builds ([`28b5d0d`](https://github.com/rootCircle/bgit/commit/28b5d0d9a3fd91f74146e8c8883c71bb75c3040f))
+    - Cleanup hooks ([`9234c37`](https://github.com/rootCircle/bgit/commit/9234c37f487cd47bf93e0d04d3535ff0a2ccf355))
+    - Chore(ci): remove unused GPG signing from release workflow The GPG signing of the RELEASES.txt file was removed from the release workflow. This step is no longer necessary as the release assets are signed individually. ([`a48ca23`](https://github.com/rootCircle/bgit/commit/a48ca2362652d1bd6b35875b2a48b1564392fe52))
+    - Release bgit v0.3.3 ([`424d5e2`](https://github.com/rootCircle/bgit/commit/424d5e2806b3593285501a2753de19b2f4cff6f5))
     - Add HOOKS.md and improve hook execution ([`377aeb5`](https://github.com/rootCircle/bgit/commit/377aeb54882c7690badd28a42f3493b54e9c9eda))
     - Improve error messages and tips for adding remotes ([`86564ed`](https://github.com/rootCircle/bgit/commit/86564edfc5eb4d52b9ebbee5e7f41fdb8d288cfd))
     - Update installation instructions and add install scripts ([`178e216`](https://github.com/rootCircle/bgit/commit/178e216e48ecab71464b2750863a90a0ea1b6f4c))
     - Add cross compilation and artifact packaging for more targets ([`e39ff22`](https://github.com/rootCircle/bgit/commit/e39ff22ae46c44be621b1df0a594539c0dcd9f35))
 </details>
+
+<csr-unknown>
+ Update installation instructions and add install scripts<csr-unknown/>
 
 ## v0.3.2 (2025-08-13)
 
@@ -212,9 +279,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix overide sole contributor values ([`3dbf649`](https://github.com/rootCircle/bgit/commit/3dbf649e29f1457d2c0ee50394b07fc390d5eb02))
     - Fix broken image in ARCHITECTURE.md ([`750b25f`](https://github.com/rootCircle/bgit/commit/750b25f515e47f27ba0093b3cb157ff688eac4ec))
 </details>
-
-<csr-unknown>
-Added support for force-with-lease via git CLI, enhancing the push functionality.Implemented persistent ssh-agent with a fixed socket and avoided duplicate agents.SSH passphrase supportImprove force-with-lease logicEnhanced error messages and remote determination for better user experience.Updated authentication workflow to support passphrase and personal access tokens (PAT).Extracted authentication logic from git_clone, git_pull and git_pushand refactored it to a auth module.Updated Rust version to 1.88 in Cargo.toml.Added combined boolean expressions across multiple files.Reduced default max large file size to 2MiBIncreased default max repo size to 128MiBIncreased default cumulative staged file size to 32MiBAdded directory size calculation to get_path_sizeAdded an install target to MakefileAdded a precommit-fix target to the Makefile to run cargo fmt and clippy.Implemented a rule to check staged file sizes.Added file size rule to push action to prevent pushing large files.<csr-unknown/>
 
 ## v0.3.0 (2025-06-09)
 
