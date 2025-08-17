@@ -5,6 +5,6 @@ BGit uses a configuration file to customize rule behavior and workflow step flag
 ## Quick links
 
 - Global (User) config — per-user settings like preferred auth and API keys:
- See [docs/config/GLOBAL.md](docs/config/GLOBAL.md).
+ See [docs/config/GLOBAL.md](GLOBAL.md).
 - Repository (Project) config — rules and workflow step flags in `.bgit/config.toml`:
- See [docs/config/REPO.md](docs/config/REPO.md).
+ See [docs/config/REPO.md](REPO.md).
