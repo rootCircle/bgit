@@ -280,12 +280,21 @@ fn add_all_ssh_keys(cfg: &BGitGlobalConfig) -> Result<Option<PathBuf>, Error> {
     let mut first_added: Option<PathBuf> = None;
 
     let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Some(configured_key) = cfg.get_ssh_key_file() {
+    let mut seen = std::collections::HashSet::new();
+
+    if let Some(configured_key) = cfg.get_ssh_key_file()
+        && seen.insert(configured_key.clone())
+    {
         candidates.push(configured_key);
     }
     for name in &key_files {
-        candidates.push(ssh_dir.join(name));
+        let path = ssh_dir.join(name);
+        if seen.insert(path.clone()) {
+            candidates.push(path);
+        }
     }
+
+    drop(seen);
 
     for key_path in candidates {
         let display_name = key_path
