@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.7 (2025-08-18)
+
+### Bug Fixes
+
+ - <csr-id-d1f54eb3cb9313fed8a5b479459e260dd2be0119/> remove stale ssh-agent socket if agent is dead
+ - <csr-id-a332e8a0df8c619b828fec950602f1f38abf6bda/> broken links
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Remove stale ssh-agent socket if agent is dead ([`d1f54eb`](https://github.com/rootCircle/bgit/commit/d1f54eb3cb9313fed8a5b479459e260dd2be0119))
+    - Broken links ([`a332e8a`](https://github.com/rootCircle/bgit/commit/a332e8a0df8c619b828fec950602f1f38abf6bda))
+</details>
+
 ## v0.3.6 (2025-08-17)
 
 ### Bug Fixes
@@ -15,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.3.6 ([`296e743`](https://github.com/rootCircle/bgit/commit/296e7438203877a862e5fab4e2fe9d79d2704d0d))
     - Duplicate key files from global_config ([`b2678e0`](https://github.com/rootCircle/bgit/commit/b2678e0c4a3c315fcc755ff5df4fd6441f4382de))
 </details>
 
@@ -37,7 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-fdb1ee6b22dda536ba08580f05cbb9425152c24a/> Suspend progress bar for clean stderr output
    - Wrapped prompt_step_task.execute in self.pb.suspend to prevent
    dialoguer prompts from interfering with the progress bar.
-- Created `pa14_ai_commit_msg` for PromptStep alignment.
 
 ### Commit Statistics
 
@@ -57,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release bgit v0.3.5 ([`29504f3`](https://github.com/rootCircle/bgit/commit/29504f3057840c3cc8fbcc5d67dd40ecf1c83f59))
     - Suspend progress bar for clean stderr output ([`fdb1ee6`](https://github.com/rootCircle/bgit/commit/fdb1ee6b22dda536ba08580f05cbb9425152c24a))
 </details>
+
+<csr-unknown>
+Created pa14_ai_commit_msg for PromptStep alignment.<csr-unknown/>
 
 ## v0.3.4 (2025-08-16)
 
@@ -106,9 +135,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Introduce global configs ([`1af265e`](https://github.com/rootCircle/bgit/commit/1af265e0a24b3242fa95a086599f887ce0ccfda9))
     - Fix install script for mac ([`125c1b6`](https://github.com/rootCircle/bgit/commit/125c1b6c6e20d242e71bea99f5f022395fda16e6))
 </details>
-
-<csr-unknown>
-Update add_all_ssh_keys to return the first key added.Add serialize_b64_opt and save_global to GlobalConfig for proper serialization and saving of config.Modify GlobalIntegrations and HttpsAuth to use serialize_b64_opt and skip_serializing_if.<csr-unknown/>
 
 ## v0.3.3 (2025-08-16)
 
