@@ -123,6 +123,25 @@ fn ensure_agent_ready() -> Result<(), Error> {
             return Ok(());
         }
 
+        // Remove stale socket if agent is dead
+        if socket_path.exists() {
+            let is_socket = std::fs::metadata(&socket_path)
+                .map(|md| md.file_type().is_socket())
+                .unwrap_or(false);
+            if is_socket {
+                let agent_alive = agent_identities_count().is_ok();
+                if !agent_alive {
+                    debug!(
+                        "Stale ssh-agent socket detected, removing: {:?}",
+                        socket_path
+                    );
+                    let _ = std::fs::remove_file(&socket_path);
+                }
+            } else {
+                let _ = std::fs::remove_file(&socket_path);
+            }
+        }
+
         // Otherwise, try to use our fixed socket path
         unsafe { std::env::set_var("SSH_AUTH_SOCK", &socket_path) };
 
@@ -134,13 +153,6 @@ fn ensure_agent_ready() -> Result<(), Error> {
         } else {
             false
         };
-
-        // Remove stale non-socket file
-        if let Ok(md) = std::fs::metadata(&socket_path)
-            && !md.file_type().is_socket()
-        {
-            let _ = std::fs::remove_file(&socket_path);
-        }
 
         if !alive {
             // Try to start agent binding to our socket; if that fails or socket doesn't appear, fallback to parsing env
