@@ -19,7 +19,7 @@ pub fn ensure_agent_ready() -> Result<(), Box<BGitError>> {
 }
 
 /// SSH agent start not supported on this platform
-pub fn start_agent_detached() -> Result<(), Box<BGitError>> {
+pub fn start_agent_detached(_socket_path: Option<&Path>) -> Result<(), Box<BGitError>> {
     Err(Box::new(BGitError::new(
         "SSH agent start unsupported",
         "SSH agent start not supported on this platform",
