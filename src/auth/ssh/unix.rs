@@ -24,12 +24,17 @@ impl SshAgentManager for UnixSshAgentManager {
         }
 
         // If SSH_AUTH_SOCK already points to a working agent, keep it.
-        if std::env::var("SSH_AUTH_SOCK")
-            .ok()
-            .and_then(|_| ssh_utils::agent_identities_count().ok())
-            .is_some()
-        {
-            return Ok(());
+        if let Ok(current_sock) = std::env::var("SSH_AUTH_SOCK") {
+            let current_pid = std::env::var("SSH_AGENT_PID").ok();
+            if ssh_utils::agent_identities_count_with_auth(
+                Some(&current_sock),
+                current_pid.as_deref(),
+            )
+            .is_ok()
+            {
+                debug!("Current SSH agent is working, keeping it");
+                return Ok(());
+            }
         }
 
         // Remove stale socket if agent is dead
@@ -38,27 +43,43 @@ impl SshAgentManager for UnixSshAgentManager {
                 .map(|md| md.file_type().is_socket())
                 .unwrap_or(false);
             if is_socket {
-                let agent_alive = ssh_utils::agent_identities_count().is_ok();
+                // Test if the specific bgit socket has a working agent
+                let socket_str = socket_path.to_string_lossy();
+                let agent_alive =
+                    ssh_utils::agent_identities_count_with_auth(Some(&socket_str), None).is_ok();
+
                 if !agent_alive {
                     debug!(
                         "Stale ssh-agent socket detected, removing: {:?}",
                         socket_path
                     );
-                    let _ = std::fs::remove_file(&socket_path);
+                    if let Err(e) = std::fs::remove_file(&socket_path) {
+                        debug!("Failed to remove stale socket {:?}: {}", socket_path, e);
+                    }
                 }
             } else {
-                let _ = std::fs::remove_file(&socket_path);
+                debug!(
+                    "Non-socket file found at ssh-agent path, removing: {:?}",
+                    socket_path
+                );
+                if let Err(e) = std::fs::remove_file(&socket_path) {
+                    debug!("Failed to remove non-socket file {:?}: {}", socket_path, e);
+                }
             }
         }
 
-        // Otherwise, try to use our fixed socket path
-        unsafe { std::env::set_var("SSH_AUTH_SOCK", &socket_path) };
+        // Get effective SSH auth configuration
+        let (effective_socket, effective_pid) = ssh_utils::get_effective_ssh_auth();
 
-        let alive = if let Ok(md) = std::fs::metadata(&socket_path)
-            && md.file_type().is_socket()
-        {
-            // Probe agent via ssh-add -l
-            ssh_utils::agent_identities_count().is_ok()
+        debug!(
+            "Effective SSH auth - socket: {:?}, pid: {:?}",
+            effective_socket, effective_pid
+        );
+
+        // Check if we have a working agent with our effective auth
+        let alive = if let Some(ref sock) = effective_socket {
+            ssh_utils::agent_identities_count_with_auth(Some(sock), effective_pid.as_deref())
+                .is_ok()
         } else {
             false
         };
@@ -78,15 +99,34 @@ impl SshAgentManager for UnixSshAgentManager {
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
+                if ready && let Err(e) = ssh_utils::save_bgit_agent_state(&socket_path, None) {
+                    debug!("Failed to save agent state after socket creation: {}", e);
+                }
                 !ready
             } {
                 // Fallback: spawn ssh-agent normally and parse SSH_AUTH_SOCK from its output
                 if let Ok((sock, pid)) = start_agent_and_parse_env() {
-                    unsafe { std::env::set_var("SSH_AUTH_SOCK", &sock) };
-                    unsafe { std::env::set_var("SSH_AGENT_PID", &pid) };
+                    debug!("Started new SSH agent - socket: {}, pid: {}", sock, pid);
+
+                    ssh_utils::set_global_ssh_env_for_libgit2(Some(&sock), Some(&pid));
+                    debug!(
+                        "Set global environment for temporary agent: socket={}, pid={}",
+                        sock, pid
+                    );
                 }
             }
         }
+
+        // Set global environment for libgit2 compatibility
+        let (effective_socket, effective_pid) = ssh_utils::get_effective_ssh_auth();
+        ssh_utils::set_global_ssh_env_for_libgit2(
+            effective_socket.as_deref(),
+            effective_pid.as_deref(),
+        );
+        debug!(
+            "Set global SSH environment for libgit2: socket={:?}, pid={:?}",
+            effective_socket, effective_pid
+        );
 
         Ok(())
     }

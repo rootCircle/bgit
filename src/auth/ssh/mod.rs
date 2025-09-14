@@ -26,13 +26,11 @@ pub mod platform {
     pub use super::unsupported::*;
 }
 
-// Re-export functions based on platform
-#[cfg(any(unix, windows))]
-pub use ssh_utils::{add_all_ssh_keys, agent_identities_count, try_ssh_key_files_directly};
-
-// On unsupported platforms, export functions from the unsupported module instead
-#[cfg(not(any(windows, unix)))]
-pub use platform::{add_all_ssh_keys, agent_identities_count, try_ssh_key_files_directly};
+// Re-export common SSH functions from ssh_utils (platform-agnostic)
+pub use ssh_utils::{
+    add_all_ssh_keys_with_auth, add_key_interactive_with_auth, agent_identities_count_with_auth,
+    get_effective_ssh_auth, set_global_ssh_env_for_libgit2, try_ssh_key_files_directly,
+};
 
 // Re-export platform-specific ensure_agent_ready function
 pub use platform::ensure_agent_ready;
