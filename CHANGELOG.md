@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.0 (2025-09-15)
+
+### Chore
+
+ - <csr-id-21e50692156c95ec1b872a561715c5353ee087bc/> update bgit to v0.4
+ - <csr-id-913aab2b8a934be1a7a717b2d9107fe2fc2e3b63/> update ssh agent socket basename
+   - Updated comments to reflect the change and clarify platform-specific behavior.
+ - <csr-id-6e0b8274026a8a4ee92c2189d2be55bb0e631110/> add AGENTS.md
+
+### Documentation
+
+ - <csr-id-ea529bbc8b3720c0317554a7d078b5563867273b/> Update AGENTS.md with logging conventions
+
+### New Features
+
+ - <csr-id-23ea72525e03bd8d74354b686e7b540ba560ba4d/> Improve agent authentication and key management
+   - Enhance SSH agent authentication to explicitly use configured agent socket.
+   - Allow interactive addition of SSH keys when agent authentication fails.
+   - Refactor SSH utility functions to accept explicit agent configuration.
+   - Improve handling of stale SSH agent sockets on Unix-like systems.
+   - Introduce functions for managing bgit-specific SSH agent state.
+   - Set global SSH environment variables for libgit2 compatibility.
+ - <csr-id-803f71f3e7562857f18d9644106eba3aec7bf463/> Introduce platform-agnostic SSH agent management
+   Refactor SSH authentication logic to support different platforms by introducing
+   a trait-based approach for SSH agent management.
+   
+   - Define a `SshAgentManager` trait for platform-specific agent behaviors.
+   - Implement `UnixSshAgentManager` and `WindowsSshAgentManager` with platform-specific logic.
+   - Consolidate common SSH utilities (key adding, agent checks) into `ssh_utils.rs`.
+   - Update `src/auth/ssh/mod.rs` to re-export functions based on the target platform.
+   - Ensure `ensure_agent_ready` and `start_agent_detached` are available through the platform-agnostic interface.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release.
+ - 27 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update bgit to v0.4 ([`21e5069`](https://github.com/rootCircle/bgit/commit/21e50692156c95ec1b872a561715c5353ee087bc))
+    - Update ssh agent socket basename ([`913aab2`](https://github.com/rootCircle/bgit/commit/913aab2b8a934be1a7a717b2d9107fe2fc2e3b63))
+    - Update AGENTS.md with logging conventions ([`ea529bb`](https://github.com/rootCircle/bgit/commit/ea529bbc8b3720c0317554a7d078b5563867273b))
+    - Fix(ssh): Validate environment SSH_AUTH_SOCK and PID Add validation for the SSH_AUTH_SOCK environment variable on Unix. The agent socket must exist, be a valid socket file, and respond to authentication requests. If the environment variables are invalid or the agent is unresponsive, they will be ignored. ([`7c4013b`](https://github.com/rootCircle/bgit/commit/7c4013b59d98f54b8523bdbd71e3de05cd71442f))
+    - Improve agent authentication and key management ([`23ea725`](https://github.com/rootCircle/bgit/commit/23ea72525e03bd8d74354b686e7b540ba560ba4d))
+    - Add AGENTS.md ([`6e0b827`](https://github.com/rootCircle/bgit/commit/6e0b8274026a8a4ee92c2189d2be55bb0e631110))
+    - Introduce platform-agnostic SSH agent management ([`803f71f`](https://github.com/rootCircle/bgit/commit/803f71f3e7562857f18d9644106eba3aec7bf463))
+    - Refactor SSH authentication handling ([`65c7d20`](https://github.com/rootCircle/bgit/commit/65c7d204a8285687c3c1a9f1a65aad28f03542c3))
+</details>
+
 ## v0.3.7 (2025-08-18)
 
 ### Bug Fixes
@@ -16,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -27,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.3.7 ([`9991c47`](https://github.com/rootCircle/bgit/commit/9991c47e94287e7d5ebcf44c89483b0e30ea9654))
     - Remove stale ssh-agent socket if agent is dead ([`d1f54eb`](https://github.com/rootCircle/bgit/commit/d1f54eb3cb9313fed8a5b479459e260dd2be0119))
     - Broken links ([`a332e8a`](https://github.com/rootCircle/bgit/commit/a332e8a0df8c619b828fec950602f1f38abf6bda))
 </details>
@@ -83,9 +142,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release bgit v0.3.5 ([`29504f3`](https://github.com/rootCircle/bgit/commit/29504f3057840c3cc8fbcc5d67dd40ecf1c83f59))
     - Suspend progress bar for clean stderr output ([`fdb1ee6`](https://github.com/rootCircle/bgit/commit/fdb1ee6b22dda536ba08580f05cbb9425152c24a))
 </details>
-
-<csr-unknown>
-Created pa14_ai_commit_msg for PromptStep alignment.<csr-unknown/>
 
 ## v0.3.4 (2025-08-16)
 
