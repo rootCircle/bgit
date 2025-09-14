@@ -46,25 +46,17 @@ pub fn ssh_authenticate_git(
             let mut added_key_path: Option<PathBuf> = None;
 
             // Get effective SSH auth configuration
-            let (effective_socket, effective_pid) = get_effective_ssh_auth();
-            debug!(
-                "Using effective SSH auth - socket: {:?}, pid: {:?}",
-                effective_socket, effective_pid
-            );
+            let effective_socket = get_effective_ssh_auth();
+            debug!("Using effective SSH auth - socket: {:?}", effective_socket);
 
-            let identity_count = agent_identities_count_with_auth(
-                effective_socket.as_deref(),
-                effective_pid.as_deref(),
-            )
-            .unwrap_or(0);
+            let identity_count =
+                agent_identities_count_with_auth(effective_socket.as_deref()).unwrap_or(0);
 
             if identity_count == 0 && attempt_count <= MAX_AUTH_ATTEMPTS {
                 debug!("ssh-agent has no identities, attempting to add keys from ~/.ssh");
-                if let Ok(first_added) = add_all_ssh_keys_with_auth(
-                    cfg,
-                    effective_socket.as_deref(),
-                    effective_pid.as_deref(),
-                ) {
+                if let Ok(first_added) =
+                    add_all_ssh_keys_with_auth(cfg, effective_socket.as_deref())
+                {
                     added_key_path = first_added;
                 }
             }
@@ -97,8 +89,8 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
     debug!("Attempting SSH agent authentication for user: {username}");
     ensure_agent_ready()?;
 
-    let (effective_socket, effective_pid) = get_effective_ssh_auth();
-    set_global_ssh_env_for_libgit2(effective_socket.as_deref(), effective_pid.as_deref());
+    let effective_socket = get_effective_ssh_auth();
+    set_global_ssh_env_for_libgit2(effective_socket.as_deref());
 
     match Cred::ssh_key_from_agent(username) {
         Ok(cred) => {
@@ -110,8 +102,8 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
             debug!("SSH agent authentication failed: {e}");
 
             // If agent auth failed, offer to add a key manually before falling back to direct files
-            let (effective_socket, effective_pid) = get_effective_ssh_auth();
-            if offer_manual_key_addition(effective_socket.as_deref(), effective_pid.as_deref()) {
+            let effective_socket = get_effective_ssh_auth();
+            if offer_manual_key_addition(effective_socket.as_deref()) {
                 // Retry with agent after adding key
                 debug!("Retrying SSH agent authentication after manual key addition");
                 if let Ok(cred) = Cred::ssh_key_from_agent(username) {
@@ -128,7 +120,7 @@ fn try_ssh_agent_auth(username: &str) -> Result<Cred, Error> {
 }
 
 /// Offers user the option to manually add a specific SSH key when authentication fails
-fn offer_manual_key_addition(socket_path: Option<&str>, agent_pid: Option<&str>) -> bool {
+fn offer_manual_key_addition(socket_path: Option<&str>) -> bool {
     let ssh_dir = home::home_dir()
         .map(|p| p.join(".ssh"))
         .unwrap_or_else(|| std::path::PathBuf::from(".ssh"));
@@ -177,7 +169,7 @@ fn offer_manual_key_addition(socket_path: Option<&str>, agent_pid: Option<&str>)
     let (key_path, key_name) = &available_keys[selection];
     debug!("User selected to add key: {}", key_name);
 
-    match add_key_interactive_with_auth(key_path, key_name, socket_path, agent_pid) {
+    match add_key_interactive_with_auth(key_path, key_name, socket_path) {
         Ok(true) => {
             println!("Successfully added SSH key '{}' to agent!", key_name);
             true

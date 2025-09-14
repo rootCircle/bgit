@@ -32,5 +32,5 @@ pub use ssh_utils::{
     get_effective_ssh_auth, set_global_ssh_env_for_libgit2, try_ssh_key_files_directly,
 };
 
-// Re-export platform-specific ensure_agent_ready function
+// Re-export platform-specific functions
 pub use platform::ensure_agent_ready;

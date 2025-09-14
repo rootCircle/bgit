@@ -6,22 +6,15 @@ use std::process::{Command, Stdio};
 
 use crate::config::global::BGitGlobalConfig;
 use crate::constants::SSH_AGENT_SOCKET_BASENAME;
-use std::os::unix::fs::FileTypeExt;
 
-/// Get the count of identities in SSH agent with specific auth environment
-pub fn agent_identities_count_with_auth(
-    socket_path: Option<&str>,
-    agent_pid: Option<&str>,
-) -> Result<usize, Error> {
+/// Get the count of identities in SSH agent with socket
+/// ssh-add exit codes: 0=success, 1=command fails (includes no identities), 2=can't contact agent
+pub fn agent_identities_count_with_auth(socket_path: Option<&str>) -> Result<usize, Error> {
     let mut cmd = Command::new("ssh-add");
     cmd.arg("-l");
 
     if let Some(socket) = socket_path {
         cmd.env("SSH_AUTH_SOCK", socket);
-    }
-
-    if let Some(pid) = agent_pid {
-        cmd.env("SSH_AGENT_PID", pid);
     }
 
     let output = cmd.output().map_err(|e| {
@@ -32,38 +25,57 @@ pub fn agent_identities_count_with_auth(
         )
     })?;
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        // Filter out informational lines and blanks; count actual keys
-        let count = stdout
-            .lines()
-            .filter(|l| !l.contains("The agent has no identities") && !l.trim().is_empty())
-            .count();
-        Ok(count)
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("Could not open a connection to your authentication agent") {
+    match output.status.code() {
+        Some(0) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let count = stdout.lines().filter(|l| !l.trim().is_empty()).count();
+            Ok(count)
+        }
+        Some(1) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            if stdout.contains("The agent has no identities") {
+                Ok(0)
+            } else {
+                Err(Error::new(
+                    ErrorCode::Auth,
+                    ErrorClass::Net,
+                    format!("ssh-add -l failed: {}", stderr.trim()),
+                ))
+            }
+        }
+        Some(2) => Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "ssh-agent not reachable",
+        )),
+        Some(code) => {
+            // Unexpected exit code
+            let stderr = String::from_utf8_lossy(&output.stderr);
             Err(Error::new(
                 ErrorCode::Auth,
                 ErrorClass::Net,
-                "ssh-agent not reachable",
-            ))
-        } else {
-            Err(Error::new(
-                ErrorCode::Auth,
-                ErrorClass::Net,
-                format!("ssh-add -l failed: {stderr}"),
+                format!(
+                    "ssh-add -l returned unexpected exit code {}: {}",
+                    code,
+                    stderr.trim()
+                ),
             ))
         }
+        None => Err(Error::new(
+            ErrorCode::Auth,
+            ErrorClass::Net,
+            "ssh-add -l was terminated by signal",
+        )),
     }
 }
 
-/// Interactively add a key to SSH agent with explicit auth environment
+/// Interactively add a key to SSH agent with socket
 pub fn add_key_interactive_with_auth(
     key_path: &Path,
     key_name: &str,
     socket_path: Option<&str>,
-    agent_pid: Option<&str>,
 ) -> Result<bool, Error> {
     debug!("Trying interactive ssh-add for key: {key_name}");
 
@@ -97,10 +109,6 @@ pub fn add_key_interactive_with_auth(
         cmd.env("SSH_AUTH_SOCK", socket);
     }
 
-    if let Some(pid) = agent_pid {
-        cmd.env("SSH_AGENT_PID", pid);
-    }
-
     let status = cmd
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -116,11 +124,11 @@ pub fn add_key_interactive_with_auth(
 
     if status.success() {
         debug!("Successfully added key: {key_name}");
-        println!("✓ SSH key '{key_name}' added successfully!");
+        println!("SSH key '{key_name}' added successfully!");
         Ok(true)
     } else {
         debug!("Interactive ssh-add failed for key: {key_name}");
-        println!("✗ Failed to add SSH key '{key_name}'");
+        println!("Failed to add SSH key '{key_name}'");
         Ok(false)
     }
 }
@@ -165,11 +173,10 @@ pub fn try_ssh_key_files_directly(username: &str) -> Result<git2::Cred, Error> {
     ))
 }
 
-/// Add all available SSH keys to the agent with explicit auth environment
+/// Add all available SSH keys to the agent with socket
 pub fn add_all_ssh_keys_with_auth(
     cfg: &BGitGlobalConfig,
     socket_path: Option<&str>,
-    agent_pid: Option<&str>,
 ) -> Result<Option<PathBuf>, Error> {
     debug!("Adding all SSH keys from .ssh folder to ssh-agent");
 
@@ -230,10 +237,6 @@ pub fn add_all_ssh_keys_with_auth(
                 cmd.env("SSH_AUTH_SOCK", socket);
             }
 
-            if let Some(pid) = agent_pid {
-                cmd.env("SSH_AGENT_PID", pid);
-            }
-
             let quick_result = cmd
                 .stdin(Stdio::null()) // No input for quick try
                 .stdout(Stdio::null()) // Suppress output for quick try
@@ -254,12 +257,7 @@ pub fn add_all_ssh_keys_with_auth(
 
                     debug!("Key {display_name} appears to need passphrase, trying interactive add");
 
-                    match add_key_interactive_with_auth(
-                        &key_path,
-                        display_name,
-                        socket_path,
-                        agent_pid,
-                    ) {
+                    match add_key_interactive_with_auth(&key_path, display_name, socket_path) {
                         Ok(true) => {
                             debug!("Successfully added key interactively: {display_name}");
                             added_count += 1;
@@ -301,30 +299,23 @@ pub fn add_all_ssh_keys_with_auth(
 #[derive(Debug, Clone)]
 pub struct BgitSshAgentState {
     pub socket_path: PathBuf,
-    pub pid: Option<String>,
 }
 
-/// Get the expected paths for bgit SSH agent files
-fn get_bgit_agent_paths() -> (PathBuf, PathBuf) {
+/// Get the expected path for bgit SSH agent socket
+pub fn get_bgit_agent_socket_path() -> PathBuf {
     let ssh_dir = home::home_dir()
         .map(|p| p.join(".ssh"))
         .unwrap_or_else(|| PathBuf::from(".ssh"));
-    let socket_path = ssh_dir.join(SSH_AGENT_SOCKET_BASENAME);
-    let pid_file_path = ssh_dir.join(format!("{}.pid", SSH_AGENT_SOCKET_BASENAME));
-    (socket_path, pid_file_path)
+    ssh_dir.join(SSH_AGENT_SOCKET_BASENAME)
 }
 
-/// Load bgit SSH agent state from files if both socket and PID exist
+/// Load bgit SSH agent state - check if socket exists and is valid
 pub fn load_bgit_agent_state() -> Option<BgitSshAgentState> {
-    let (socket_path, pid_file_path) = get_bgit_agent_paths();
+    let socket_path = get_bgit_agent_socket_path();
 
-    // Both socket and PID file must exist to be considered valid
-    if !socket_path.exists() || !pid_file_path.exists() {
-        debug!(
-            "Bgit agent state incomplete - socket exists: {}, pid file exists: {}",
-            socket_path.exists(),
-            pid_file_path.exists()
-        );
+    // Socket must exist to be considered valid
+    if !socket_path.exists() {
+        debug!("Bgit agent socket does not exist: {:?}", socket_path);
         return None;
     }
 
@@ -333,6 +324,7 @@ pub fn load_bgit_agent_state() -> Option<BgitSshAgentState> {
     {
         match std::fs::metadata(&socket_path) {
             Ok(md) => {
+                use std::os::unix::fs::FileTypeExt;
                 if !md.file_type().is_socket() {
                     debug!(
                         "Bgit agent socket path exists but is not a socket: {:?}",
@@ -348,56 +340,13 @@ pub fn load_bgit_agent_state() -> Option<BgitSshAgentState> {
         }
     }
 
-    // Read PID from file
-    let pid = match std::fs::read_to_string(&pid_file_path) {
-        Ok(content) => {
-            let trimmed = content.trim();
-            if trimmed.is_empty() {
-                debug!("PID file is empty: {:?}", pid_file_path);
-                return None;
-            }
-            Some(trimmed.to_string())
-        }
-        Err(e) => {
-            debug!("Failed to read PID file {:?}: {}", pid_file_path, e);
-            return None;
-        }
-    };
-
-    debug!(
-        "Loaded bgit agent state - socket: {:?}, pid: {:?}",
-        socket_path, pid
-    );
-    Some(BgitSshAgentState { socket_path, pid })
+    debug!("Loaded bgit agent state - socket: {:?}", socket_path);
+    Some(BgitSshAgentState { socket_path })
 }
 
-/// Save bgit SSH agent state to files
-pub fn save_bgit_agent_state(socket_path: &Path, pid: Option<&str>) -> Result<(), Error> {
-    let (_, pid_file_path) = get_bgit_agent_paths();
-
-    if let Some(pid_str) = pid {
-        if let Err(e) = std::fs::write(&pid_file_path, pid_str) {
-            debug!("Failed to write PID file {:?}: {}", pid_file_path, e);
-            return Err(Error::new(
-                git2::ErrorCode::GenericError,
-                git2::ErrorClass::Os,
-                format!("Failed to save agent PID: {}", e),
-            ));
-        }
-        debug!(
-            "Saved bgit agent state - socket: {:?}, pid: {}",
-            socket_path, pid_str
-        );
-    } else {
-        debug!("No PID provided, not saving state");
-    }
-
-    Ok(())
-}
-
-/// Clean up bgit SSH agent state files
+/// Clean up bgit SSH agent socket
 pub fn cleanup_bgit_agent_state() {
-    let (socket_path, pid_file_path) = get_bgit_agent_paths();
+    let socket_path = get_bgit_agent_socket_path();
 
     if socket_path.exists() {
         if let Err(e) = std::fs::remove_file(&socket_path) {
@@ -406,73 +355,96 @@ pub fn cleanup_bgit_agent_state() {
             debug!("Cleaned up socket file: {:?}", socket_path);
         }
     }
-
-    if pid_file_path.exists() {
-        if let Err(e) = std::fs::remove_file(&pid_file_path) {
-            debug!("Failed to remove PID file {:?}: {}", pid_file_path, e);
-        } else {
-            debug!("Cleaned up PID file: {:?}", pid_file_path);
-        }
-    }
 }
 
 /// Direct agent verification without recursion - used internally to avoid infinite loops
-fn verify_agent_socket_direct(socket_path: &str, agent_pid: Option<&str>) -> bool {
+fn verify_agent_socket_direct(socket_path: &str) -> bool {
     let mut cmd = Command::new("ssh-add");
     cmd.arg("-l").env("SSH_AUTH_SOCK", socket_path);
 
-    if let Some(pid) = agent_pid {
-        cmd.env("SSH_AGENT_PID", pid);
-    }
+    match cmd.output() {
+        Ok(output) => match output.status.code() {
+            Some(0) => {
+                debug!("Agent at {} is running with keys", socket_path);
+                true
+            }
+            Some(1) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
 
-    cmd.output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+                if stdout.contains("The agent has no identities") {
+                    debug!("Agent at {} is running but empty", socket_path);
+                    true
+                } else {
+                    debug!("Agent at {} command failed: stderr={}", socket_path, stderr);
+                    false
+                }
+            }
+            Some(2) => {
+                debug!("Agent at {} is not reachable (exit code 2)", socket_path);
+                false
+            }
+            Some(code) => {
+                debug!(
+                    "Agent at {} returned unexpected exit code: {}",
+                    socket_path, code
+                );
+                false
+            }
+            None => {
+                debug!(
+                    "Agent verification at {} was terminated by signal",
+                    socket_path
+                );
+                false
+            }
+        },
+        Err(e) => {
+            // Command failed to run (ssh-add not found, permission denied, etc.)
+            debug!("Failed to run ssh-add for {}: {}", socket_path, e);
+            false
+        }
+    }
 }
 
 /// Set global SSH environment variables for libgit2 compatibility
 /// This is needed because libgit2's Cred::ssh_key_from_agent() uses global environment
 /// WARNING: This modifies global process state - use carefully!
-pub fn set_global_ssh_env_for_libgit2(socket_path: Option<&str>, agent_pid: Option<&str>) {
+pub fn set_global_ssh_env_for_libgit2(socket_path: Option<&str>) {
     if let Some(socket) = socket_path {
         debug!("Setting global SSH_AUTH_SOCK for libgit2: {}", socket);
         unsafe { std::env::set_var("SSH_AUTH_SOCK", socket) };
     } else {
         debug!("No SSH_AUTH_SOCK provided - libgit2 will use existing environment");
     }
-
-    if let Some(pid) = agent_pid {
-        debug!("Setting global SSH_AGENT_PID for libgit2: {}", pid);
-        unsafe { std::env::set_var("SSH_AGENT_PID", pid) };
-    } else {
-        debug!("No SSH_AGENT_PID provided - libgit2 will use existing environment");
-    }
 }
 
 /// Get the current effective SSH auth configuration
-/// Returns (socket_path, pid) - uses bgit state if available, otherwise current environment
-pub fn get_effective_ssh_auth() -> (Option<String>, Option<String>) {
+/// Returns socket_path - uses bgit state if available, otherwise current environment
+pub fn get_effective_ssh_auth() -> Option<String> {
     // First try to load bgit agent state
     if let Some(state) = load_bgit_agent_state() {
         // Verify the socket is actually working - using direct verification to avoid recursion
         let socket_str = state.socket_path.to_string_lossy();
-        if verify_agent_socket_direct(&socket_str, state.pid.as_deref()) {
+        if verify_agent_socket_direct(&socket_str) {
             debug!("Using bgit agent state: {:?}", state.socket_path);
-            return (Some(socket_str.to_string()), state.pid);
+            return Some(socket_str.to_string());
         } else {
             debug!("Bgit agent socket not working, cleaning up stale state");
             cleanup_bgit_agent_state();
+            debug!("Returning None after cleanup to force bgit agent creation");
+            return None;
         }
     }
 
-    // Fallback to current environment
+    // Fallback to current environment only if no bgit state was found
     let current_sock = std::env::var("SSH_AUTH_SOCK").ok();
-    let current_pid = std::env::var("SSH_AGENT_PID").ok();
 
     // Validate environment-provided socket on Unix (must be a socket and working)
     if let Some(ref sock) = current_sock {
         #[cfg(unix)]
         {
+            use std::os::unix::fs::FileTypeExt;
             let path = std::path::Path::new(sock);
             let is_socket = std::fs::metadata(path)
                 .map(|m| m.file_type().is_socket())
@@ -482,25 +454,25 @@ pub fn get_effective_ssh_auth() -> (Option<String>, Option<String>) {
                     "Environment SSH_AUTH_SOCK is not a socket or missing: {:?}",
                     sock
                 );
-                return (None, None);
+                return None;
             }
         }
 
-        if verify_agent_socket_direct(sock, current_pid.as_deref()) {
+        if verify_agent_socket_direct(sock) {
             debug!(
-                "Using current environment auth - socket: {:?}, pid: {:?}",
-                current_sock, current_pid
+                "Using current environment auth - socket: {:?}",
+                current_sock
             );
-            return (current_sock, current_pid);
+            return current_sock;
         } else {
             debug!(
                 "Environment SSH agent not working for socket {:?}, ignoring",
                 sock
             );
-            return (None, None);
+            return None;
         }
     }
 
     debug!("No SSH agent environment available");
-    (None, None)
+    None
 }

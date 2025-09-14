@@ -232,6 +232,26 @@ The SSH system (`src/auth/ssh/`) provides:
 4. **Add Documentation**: Include clear docstrings for public interfaces
 5. **Test Thoroughly**: Consider edge cases and error conditions
 
+### Logging Conventions
+1. **No Emoji Symbols**: All logging output must be emoji-free for compatibility across terminals and systems
+2. **Clear Status Messages**: Use plain text for success/failure indicators
+   - Use "Successfully" instead of "✓"
+   - Use "Failed" instead of "✗"
+   - Use "Warning" instead of "⚠"
+3. **Debug vs User Output**: Debug logs (`debug!()`) are for developers, user output (`println!()`) should be concise
+4. **Consistent Formatting**: Maintain consistent message structure across similar operations
+5. **Cross-Platform Text**: Ensure all text displays correctly on Unix, Windows, and different terminal emulators
+
+```rust
+// Good: Emoji-free logging
+debug!("Successfully created persistent agent");
+println!("SSH key '{}' added successfully!", key_name);
+
+// Bad: Contains emoji symbols
+debug!("✓ Successfully created persistent agent");
+println!("✓ SSH key '{}' added successfully!", key_name);
+```
+
 ### Common Pitfalls to Avoid
 1. **Ignoring Platform Differences**: Not handling Windows vs Unix differences
 2. **Poor Error Context**: Generic error messages without proper context
