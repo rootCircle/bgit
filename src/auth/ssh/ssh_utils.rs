@@ -318,7 +318,7 @@ fn get_bgit_agent_paths() -> (PathBuf, PathBuf) {
 pub fn load_bgit_agent_state() -> Option<BgitSshAgentState> {
     let (socket_path, pid_file_path) = get_bgit_agent_paths();
 
-    // Both socket and PID file must exist
+    // Both socket and PID file must exist to be considered valid
     if !socket_path.exists() || !pid_file_path.exists() {
         debug!(
             "Bgit agent state incomplete - socket exists: {}, pid file exists: {}",
@@ -468,9 +468,39 @@ pub fn get_effective_ssh_auth() -> (Option<String>, Option<String>) {
     // Fallback to current environment
     let current_sock = std::env::var("SSH_AUTH_SOCK").ok();
     let current_pid = std::env::var("SSH_AGENT_PID").ok();
-    debug!(
-        "Using current environment auth - socket: {:?}, pid: {:?}",
-        current_sock, current_pid
-    );
-    (current_sock, current_pid)
+
+    // Validate environment-provided socket on Unix (must be a socket and working)
+    if let Some(ref sock) = current_sock {
+        #[cfg(unix)]
+        {
+            let path = std::path::Path::new(sock);
+            let is_socket = std::fs::metadata(path)
+                .map(|m| m.file_type().is_socket())
+                .unwrap_or(false);
+            if !is_socket {
+                debug!(
+                    "Environment SSH_AUTH_SOCK is not a socket or missing: {:?}",
+                    sock
+                );
+                return (None, None);
+            }
+        }
+
+        if verify_agent_socket_direct(sock, current_pid.as_deref()) {
+            debug!(
+                "Using current environment auth - socket: {:?}, pid: {:?}",
+                current_sock, current_pid
+            );
+            return (current_sock, current_pid);
+        } else {
+            debug!(
+                "Environment SSH agent not working for socket {:?}, ignoring",
+                sock
+            );
+            return (None, None);
+        }
+    }
+
+    debug!("No SSH agent environment available");
+    (None, None)
 }

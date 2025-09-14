@@ -99,8 +99,18 @@ impl SshAgentManager for UnixSshAgentManager {
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                if ready && let Err(e) = ssh_utils::save_bgit_agent_state(&socket_path, None) {
-                    debug!("Failed to save agent state after socket creation: {}", e);
+                if ready {
+                    // Try to parse env if the agent printed any, else attempt PID recovery
+                    let (eff_sock, eff_pid) = ssh_utils::get_effective_ssh_auth();
+                    let pid_to_save = if eff_sock.as_deref() == Some(&socket_path.to_string_lossy())
+                    {
+                        eff_pid.as_deref()
+                    } else {
+                        None
+                    };
+                    if let Err(e) = ssh_utils::save_bgit_agent_state(&socket_path, pid_to_save) {
+                        debug!("Failed to save agent state after socket creation: {}", e);
+                    }
                 }
                 !ready
             } {
