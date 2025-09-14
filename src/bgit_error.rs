@@ -22,6 +22,7 @@ pub(crate) enum BGitErrorWorkflowType {
     WorkflowQueue,
     ActionStep,
     PromptStep,
+    Authentication,
 }
 
 pub(crate) const EMPTY_STRING: &str = "";
