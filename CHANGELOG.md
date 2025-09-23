@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.2 (2025-09-24)
+
+### Bug Fixes
+
+ - <csr-id-b3ea22bfb3ed203d0e8a50142265ce05feb19fcd/> bug with ai commit message gen
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bug with ai commit message gen ([`b3ea22b`](https://github.com/rootCircle/bgit/commit/b3ea22bfb3ed203d0e8a50142265ce05feb19fcd))
+</details>
+
 ## v0.4.1 (2025-09-24)
+
+<csr-id-51e13e5777f2dbe7ba247a626c31bc537c3fb676/>
 
 ### Other
 
@@ -15,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 8 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release bgit v0.4.1 ([`52ee6c6`](https://github.com/rootCircle/bgit/commit/52ee6c66c3d3a9b9129b632bbbadeab2c4e278c3))
     - Upgrade deps ([`51e13e5`](https://github.com/rootCircle/bgit/commit/51e13e5777f2dbe7ba247a626c31bc537c3fb676))
 </details>
 
@@ -53,16 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-23ea72525e03bd8d74354b686e7b540ba560ba4d/> Improve agent authentication and key management
    - Enhance SSH agent authentication to explicitly use configured agent socket.
-- Allow interactive addition of SSH keys when agent authentication fails.
-- Refactor SSH utility functions to accept explicit agent configuration.
-- Improve handling of stale SSH agent sockets on Unix-like systems.
-- Introduce functions for managing bgit-specific SSH agent state.
-- Set global SSH environment variables for libgit2 compatibility.
-- Define a `SshAgentManager` trait for platform-specific agent behaviors.
-- Implement `UnixSshAgentManager` and `WindowsSshAgentManager` with platform-specific logic.
-- Consolidate common SSH utilities (key adding, agent checks) into `ssh_utils.rs`.
-- Update `src/auth/ssh/mod.rs` to re-export functions based on the target platform.
-- Ensure `ensure_agent_ready` and `start_agent_detached` are available through the platform-agnostic interface.
 
 ### Commit Statistics
 
@@ -92,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- Introduce platform-agnostic SSH agent managementRefactor SSH authentication logic to support different platforms by introducinga trait-based approach for SSH agent management.<csr-unknown/>
+Allow interactive addition of SSH keys when agent authentication fails.Refactor SSH utility functions to accept explicit agent configuration.Improve handling of stale SSH agent sockets on Unix-like systems.Introduce functions for managing bgit-specific SSH agent state.Set global SSH environment variables for libgit2 compatibility.Define a SshAgentManager trait for platform-specific agent behaviors.Implement UnixSshAgentManager and WindowsSshAgentManager with platform-specific logic.Consolidate common SSH utilities (key adding, agent checks) into ssh_utils.rs.Update src/auth/ssh/mod.rs to re-export functions based on the target platform.Ensure ensure_agent_ready and start_agent_detached are available through the platform-agnostic interface.<csr-unknown/>
 
 ## v0.3.7 (2025-08-18)
 
