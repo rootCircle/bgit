@@ -33,7 +33,7 @@ impl PromptStep for AskPushPull {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to pull/push commits?")
             .default(0)
-            .items(&["Yes", "No"])
+            .items(["Yes", "No"])
             .interact()
             .map_err(|e| {
                 Box::new(BGitError::new(

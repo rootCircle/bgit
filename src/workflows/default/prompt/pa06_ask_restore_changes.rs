@@ -34,7 +34,7 @@ impl PromptStep for AskToRestore {
     ) -> Result<Step, Box<BGitError>> {
         let selections = MultiSelect::with_theme(&ColorfulTheme::default())
             .with_prompt("Select restore options (Space to select, Enter to confirm, or press Enter with nothing selected to cancel)")            
-            .items(&[
+            .items([
                 "Restore unstaged changes (git restore .)",
                 "Unstage all files (git restore --staged .)",
             ])

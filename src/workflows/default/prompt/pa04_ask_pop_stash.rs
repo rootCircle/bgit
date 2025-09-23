@@ -35,7 +35,7 @@ impl PromptStep for AskPopStash {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to pop the stash?")
             .default(0)
-            .items(&["Yes", "No"])
+            .items(["Yes", "No"])
             .interact()
             .map_err(|e| {
                 Box::new(BGitError::new(

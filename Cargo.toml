@@ -19,27 +19,27 @@ keywords = ["git", "beginner-friendly", "libgit-rs", "hooks", "smart-rules"]
 rust-version = "1.88"
 
 [dependencies]
-clap = { version = "4.5.45", features = ["derive"] }
-clap_complete = "4.5.57"
+clap = { version = "4.5.48", features = ["derive"] }
+clap_complete = "4.5.58"
 colored = "3.0.0"
-dialoguer = "0.11.0"
+dialoguer = "0.12.0"
 env_logger = "0.11.8"
 git2 = "0.20.2"
-home = "0.5.9"
+home = "0.5.11"
 indicatif = "0.18.0"
-log = "0.4.27"
-regex = "1.11.1"
-rig-core = "0.17.1"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.142"
+log = "0.4.28"
+regex = "1.11.2"
+rig-core = "0.20.0"
+serde = { version = "1.0.226", features = ["derive"] }
+serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = ["full"] }
-toml = "0.9.5"
+toml = "0.9.7"
 which = "8.0.0"
 base64 = "0.22.1"
 
 [dev-dependencies]
 assert_cmd = "2.0.17"
-tempfile = "3.20.0"
+tempfile = "3.23.0"
 
 [target.'cfg(target_env = "musl")'.dependencies]
 git2 = { version = "0.20.2", features = ["vendored-openssl"] }

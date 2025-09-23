@@ -446,7 +446,7 @@ impl NoSecretsStaged {
         // Check if string looks like base64
         s.chars()
             .all(|c| c.is_alphanumeric() || c == '+' || c == '/' || c == '=')
-            && s.len() % 4 == 0
+            && s.len().is_multiple_of(4)
     }
 
     fn validate_not_common_word(s: &str) -> bool {

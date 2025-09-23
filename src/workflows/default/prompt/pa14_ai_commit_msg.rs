@@ -17,7 +17,7 @@ use crate::{
 use dialoguer::{Confirm, Password, theme::ColorfulTheme};
 use git2::{DiffOptions, Repository};
 use log::debug;
-use rig::{completion::Prompt, providers::gemini};
+use rig::{client::CompletionClient, completion::Prompt, providers::gemini};
 use std::path::Path;
 
 use crate::events::AtomicEvent;

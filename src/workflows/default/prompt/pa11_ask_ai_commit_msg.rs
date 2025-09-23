@@ -36,7 +36,7 @@ impl PromptStep for AskAICommitMessage {
         let selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want your commit message written by AI?")
             .default(0)
-            .items(&[
+            .items([
                 "Yes, generate AI commit message",
                 "No, I'll write it myself",
             ])

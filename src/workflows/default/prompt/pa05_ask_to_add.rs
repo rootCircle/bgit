@@ -36,7 +36,7 @@ impl PromptStep for AskToAdd {
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Do you want to add the unstaged files?")
             .default(0)
-            .items(&["Yes", "No"])
+            .items(["Yes", "No"])
             .interact()
             .map_err(|e| {
                 Box::new(BGitError::new(
