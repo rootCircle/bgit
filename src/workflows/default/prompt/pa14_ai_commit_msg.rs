@@ -17,6 +17,9 @@ use crate::{
 use dialoguer::{Confirm, Password, theme::ColorfulTheme};
 use git2::{DiffOptions, Repository};
 use log::debug;
+use rig::providers::gemini::completion::gemini_api_types::{
+    AdditionalParameters, GenerationConfig,
+};
 use rig::{client::CompletionClient, completion::Prompt, providers::gemini};
 use std::path::Path;
 
@@ -300,10 +303,14 @@ Style:
 - No code blocks, quotes, backticks, or markdown decorations
 - Output ONLY the commit message content (header and optional body)"#;
 
+        let gen_cfg = GenerationConfig::default();
+        let cfg = AdditionalParameters::default().with_config(gen_cfg);
+
         let agent = client
             .agent("gemini-2.5-flash-lite")
             .preamble(system_prompt)
             .temperature(0.2)
+            .additional_params(serde_json::to_value(cfg).unwrap())
             .tool(ValidateConventionalCommit)
             .build();
 
@@ -345,5 +352,41 @@ Remember:
         }
 
         Ok(commit_message)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_commit_message_with_api_key_or_skip() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let api_key = match std::env::var("GOOGLE_API_KEY") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                eprintln!(
+                    "Skipping test_generate_commit_message_with_api_key_or_skip: GOOGLE_API_KEY not set"
+                );
+                return Ok(());
+            }
+        };
+
+        let ai = AICommit::new();
+        // Minimal but valid diff-like content to drive the model
+        let diff_content = r#"diff --git a/src/example.rs b/src/example.rs
+index 0000001..0ddf00d 100644
+--- a/src/example.rs
++++ b/src/example.rs
+@@ -0,0 +1,3 @@
++pub fn example() -> i32 {
++    42
++}
+"#;
+
+        let msg = ai.generate_commit_message(&api_key, diff_content).unwrap();
+
+        assert!(!msg.trim().is_empty(), "Generated commit message is empty");
+
+        Ok(())
     }
 }
