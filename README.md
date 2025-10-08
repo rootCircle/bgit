@@ -16,6 +16,8 @@
 ![Crates.io Size](https://img.shields.io/crates/size/bgit?style=for-the-badge&logo=rust&logoColor=D9E0EE&labelColor=292324)
 ![Crates.io MSRV](https://img.shields.io/crates/msrv/bgit?style=for-the-badge&logo=rust&logoColor=D9E0EE&labelColor=292324)
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rootCircle/bgit)
+
 </div>
 
 bgit is a simplified wrapper for Git, designed specifically for absolute beginners who find the Git workflow daunting. It automates common Git tasks such as adding, committing, and pushing changes, while also incorporating smart rules to prevent common issues like accidentally adding sensitive files or directories such as `.env` or `node_modules`.
