@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # It also takes care of caching intermediate build artifacts.
       - name: Install the Rust toolchain
@@ -39,7 +39,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -54,7 +54,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -94,6 +94,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: taiki-e/install-action@cargo-hack
       - run: cargo hack check --rust-version --workspace --all-targets --ignore-private
